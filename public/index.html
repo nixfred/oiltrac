@@ -510,6 +510,43 @@ html, body {
   min-width: 200px;
 }
 
+#globe-zoom-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+
+.zoom-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(10, 22, 40, 0.85);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--amber);
+  font-size: 22px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.zoom-btn:hover {
+  background: rgba(10, 22, 40, 0.95);
+  border-color: var(--amber);
+}
+
+.zoom-btn:active {
+  transform: scale(0.92);
+}
+
 /* Ensure globe-wrap always has height from grid */
 #main {
   min-height: 500px;
@@ -1146,6 +1183,10 @@ html, body {
     <!-- GLOBE -->
     <div id="globe-wrap">
       <div id="globe-container"></div>
+      <div id="globe-zoom-controls">
+        <button class="zoom-btn" onclick="zoomGlobe(-0.5)" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomGlobe(0.5)" title="Zoom Out">−</button>
+      </div>
       <div id="globe-tooltip"></div>
       <div id="vessel-detail">
         <button class="detail-close" onclick="closeVesselDetail()">&times;</button>
@@ -1815,6 +1856,15 @@ function initGlobe() {
     }
   });
   ro.observe(container);
+}
+
+// Zoom in/out via buttons
+function zoomGlobe(delta) {
+  if (!globe) return;
+  const pov = globe.pointOfView();
+  const newAlt = Math.max(0.3, Math.min(6, pov.altitude + delta));
+  globe.pointOfView({ lat: pov.lat, lng: pov.lng, altitude: newAlt }, 300);
+  scaleElements(newAlt);
 }
 
 // Scale tanker icons and labels based on zoom altitude
