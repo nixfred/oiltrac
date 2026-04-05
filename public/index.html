@@ -1833,7 +1833,7 @@ function createTankerIcon(color, heading, vessel) {
       <rect x="10" y="4" width="3" height="4" rx="0.5" fill="rgba(0,0,0,0.3)"/>
       <rect x="14" y="3.5" width="2.5" height="5" rx="0.5" fill="rgba(0,0,0,0.4)"/>
     </svg>
-    <div style="font-size:7px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 3px #000,0 0 6px #000;font-family:var(--font-mono)">${name}</div>
+    <div style="font-size:11px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 3px #000,0 0 6px #000;font-family:var(--font-mono)">${name}</div>
   `;
 
   // Hover tooltip
@@ -1925,7 +1925,7 @@ function renderGlobe() {
     el.className = 'tanker-icon port-label';
     el.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;';
     el.innerHTML = `<div style="width:8px;height:8px;background:var(--amber);border-radius:50%;margin:0 auto;box-shadow:0 0 4px var(--amber)"></div>
-      <div style="font-size:10px;color:var(--amber);white-space:nowrap;margin-top:2px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono);font-weight:600">${p.name || p.port_name}</div>`;
+      <div style="font-size:14px;color:var(--amber);white-space:nowrap;margin-top:2px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono);font-weight:600">${p.name || p.port_name}</div>`;
     htmlData.push({ lat: p.lat, lng: p.lng || p.lon, el });
   }
 
@@ -1937,7 +1937,7 @@ function renderGlobe() {
     const pct = r.utilization_pct || 0;
     const color = pct >= 85 ? 'var(--green)' : pct >= 70 ? 'var(--amber)' : 'var(--red)';
     el.innerHTML = `<div style="width:6px;height:6px;background:${color};border-radius:50%;margin:0 auto;box-shadow:0 0 3px ${color}"></div>
-      <div style="font-size:8px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono)">⛽ ${r.name}</div>`;
+      <div style="font-size:12px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono)">⛽ ${r.name}</div>`;
     htmlData.push({ lat: r.lat, lng: r.lng, el });
   }
 
