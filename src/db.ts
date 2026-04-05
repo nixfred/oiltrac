@@ -210,10 +210,10 @@ function seedVessels(): void {
     { name: 'EAGLE VANCOUVER', mmsi: '311000102', cls: 'Suezmax', flag: 'MH', lat: 3.20, lng: 100.50, speed: 11.8, heading: 90, status: 'underway', draughtPct: 0.88, dest: 'NINGBO', eta: '2026-04-10', aisDark: 0 },
     { name: 'OLYMPIC LION', mmsi: '241000201', cls: 'VLCC', flag: 'GR', lat: 12.50, lng: 44.00, speed: 13.1, heading: 200, status: 'underway', draughtPct: 0.91, dest: 'ROTTERDAM', eta: '2026-04-18', aisDark: 0 },
     { name: 'PACIFIC VOYAGER', mmsi: '538000301', cls: 'Aframax', flag: 'MH', lat: 28.50, lng: -88.50, speed: 10.5, heading: 320, status: 'underway', draughtPct: 0.87, dest: 'HOUSTON', eta: '2026-04-07', aisDark: 0 },
-    { name: 'MINERVA HELEN', mmsi: '241000202', cls: 'Suezmax', flag: 'GR', lat: 35.50, lng: 25.00, speed: 14.2, heading: 270, status: 'underway', draughtPct: 0.90, dest: 'CEYHAN', eta: '2026-04-08', aisDark: 0 },
+    { name: 'MINERVA HELEN', mmsi: '241000202', cls: 'Suezmax', flag: 'GR', lat: 34.80, lng: 25.50, speed: 14.2, heading: 270, status: 'underway', draughtPct: 0.90, dest: 'CEYHAN', eta: '2026-04-08', aisDark: 0 },
     { name: 'DUBAI HARMONY', mmsi: '470000101', cls: 'VLCC', flag: 'AE', lat: 5.00, lng: 75.00, speed: 12.7, heading: 110, status: 'underway', draughtPct: 0.93, dest: 'YOKOHAMA', eta: '2026-04-15', aisDark: 0 },
-    { name: 'MARAN POSEIDON', mmsi: '241000203', cls: 'VLCC', flag: 'GR', lat: 30.00, lng: 33.00, speed: 11.5, heading: 340, status: 'underway', draughtPct: 0.89, dest: 'ROTTERDAM', eta: '2026-04-14', aisDark: 0 },
-    { name: 'SCF PRIMORYE', mmsi: '273000101', cls: 'Suezmax', flag: 'RU', lat: 1.80, lng: 104.00, speed: 10.2, heading: 45, status: 'underway', draughtPct: 0.86, dest: 'NINGBO', eta: '2026-04-09', aisDark: 0 },
+    { name: 'MARAN POSEIDON', mmsi: '241000203', cls: 'VLCC', flag: 'GR', lat: 31.50, lng: 32.40, speed: 11.5, heading: 340, status: 'underway', draughtPct: 0.89, dest: 'ROTTERDAM', eta: '2026-04-14', aisDark: 0 },
+    { name: 'SCF PRIMORYE', mmsi: '273000101', cls: 'Suezmax', flag: 'RU', lat: 2.20, lng: 104.80, speed: 10.2, heading: 45, status: 'underway', draughtPct: 0.86, dest: 'NINGBO', eta: '2026-04-09', aisDark: 0 },
     { name: 'NAVE ANDROMEDA', mmsi: '538000302', cls: 'Aframax', flag: 'MH', lat: 50.00, lng: 1.00, speed: 12.0, heading: 180, status: 'underway', draughtPct: 0.85, dest: 'ROTTERDAM', eta: '2026-04-06', aisDark: 0 },
     { name: 'ATLANTIC PROGRESS', mmsi: '311000103', cls: 'LNG', flag: 'MH', lat: 27.00, lng: -90.00, speed: 14.5, heading: 0, status: 'underway', draughtPct: 0.88, dest: 'LONG_BEACH', eta: '2026-04-11', aisDark: 0 },
     { name: 'CRIMSON MAJESTY', mmsi: '636000101', cls: 'VLCC', flag: 'LR', lat: -5.00, lng: 40.00, speed: 13.0, heading: 210, status: 'underway', draughtPct: 0.94, dest: 'SALDANHA', eta: '2026-04-13', aisDark: 0 },
@@ -244,7 +244,7 @@ function seedVessels(): void {
     { name: 'GRAN COUVA', mmsi: '375000101', cls: 'LNG', flag: 'TT', lat: 10.00, lng: -62.00, speed: 6.5, heading: 0, status: 'dark', draughtPct: 0.85, dest: 'HOUSTON', eta: '2026-04-10', aisDark: 1 },
 
     // 2 remaining
-    { name: 'KRITI BASTION', mmsi: '241000205', cls: 'LNG', flag: 'GR', lat: 36.00, lng: 24.00, speed: 12.8, heading: 90, status: 'underway', draughtPct: 0.87, dest: 'CEYHAN', eta: '2026-04-07', aisDark: 0 },
+    { name: 'KRITI BASTION', mmsi: '241000205', cls: 'LNG', flag: 'GR', lat: 35.50, lng: 23.50, speed: 12.8, heading: 90, status: 'underway', draughtPct: 0.87, dest: 'CEYHAN', eta: '2026-04-07', aisDark: 0 },
     { name: 'SIENNA', mmsi: '636000104', cls: 'Product', flag: 'LR', lat: 33.80, lng: -118.10, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.86, dest: 'LONG_BEACH', eta: '2026-04-06', aisDark: 0 },
   ];
 
