@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://oil.nixfred.com">🔗 oil.nixfred.com</a>
+  <a href="https://oil.nixfred.tech">🔗 oil.nixfred.tech</a>
 </p>
 
 <p align="center">
@@ -212,24 +212,20 @@ All endpoints return JSON. Base URL: `http://localhost:3000`
 
 ## 🌍 Deployment
 
-OILTRAC is live at **[oil.nixfred.com](https://oil.nixfred.com)** via Cloudflare Tunnel.
+OILTRAC is live at **[oil.nixfred.tech](https://oil.nixfred.tech)**.
 
-### Self-Hosting with Cloudflare Tunnel
+### Docker
 
 ```bash
-# Install cloudflared
-curl -fsSL https://pkg.cloudflare.com/cloudflared-linux-amd64.deb -o cloudflared.deb
-sudo dpkg -i cloudflared.deb
-
-# Create tunnel (one-time)
-cloudflared tunnel create oiltrac
-cloudflared tunnel route dns oiltrac oil.yourdomain.com
-
-# Run the tunnel
-cloudflared tunnel --url http://localhost:3000 run oiltrac
+docker build -t oiltrac .
+docker run -d --name oiltrac \
+  -v oiltrac-data:/app/data \
+  --env-file .env \
+  --restart unless-stopped \
+  oiltrac
 ```
 
-### Systemd Service
+### Systemd Service (bare metal)
 
 ```ini
 # /etc/systemd/system/oiltrac.service
@@ -253,6 +249,10 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl enable --now oiltrac
 ```
+
+### Reverse Proxy
+
+OILTRAC runs on port 3000 internally. Point your reverse proxy at `http://localhost:3000` and configure TLS upstream.
 
 ---
 
