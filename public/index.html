@@ -45,7 +45,7 @@ html, body {
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
 }
 
@@ -263,7 +263,7 @@ html, body {
    ═══════════════════════════════════════════ */
 #main {
   display: grid;
-  grid-template-columns: 340px 1fr 340px;
+  grid-template-columns: 420px 1fr 420px;
   gap: 0;
   overflow: hidden;
 }
@@ -290,7 +290,7 @@ html, body {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
-  padding: 14px;
+  padding: 16px;
   position: relative;
 }
 
@@ -303,7 +303,7 @@ html, body {
 
 .card-title {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--amber);
   letter-spacing: 2px;
@@ -315,7 +315,7 @@ html, body {
   border: 1px solid var(--panel-border);
   border-radius: 3px;
   color: var(--dim);
-  font-size: 10px;
+  font-size: 12px;
   font-family: var(--font-mono);
   padding: 2px 8px;
   cursor: pointer;
@@ -347,7 +347,7 @@ html, body {
 }
 
 .stat-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--dim);
   letter-spacing: 1px;
@@ -357,7 +357,7 @@ html, body {
 
 .stat-value {
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
 }
 
@@ -384,7 +384,7 @@ html, body {
 }
 
 .vessel-mini-list h4 {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--dim);
   letter-spacing: 1px;
@@ -396,8 +396,8 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
-  font-size: 11px;
+  padding: 5px 0;
+  font-size: 13px;
   border-bottom: 1px solid rgba(26, 42, 74, 0.3);
 }
 
@@ -436,14 +436,14 @@ html, body {
 
 .choke-name {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .status-badge {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 3px;
@@ -488,7 +488,7 @@ html, body {
 
 .choke-detail {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--dim);
 }
 
@@ -613,9 +613,9 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(26, 42, 74, 0.3);
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .price-row:last-child { border-bottom: none; }
@@ -636,7 +636,7 @@ html, body {
 
 .price-change {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   min-width: 60px;
   text-align: right;
@@ -661,14 +661,14 @@ html, body {
 }
 
 .storage-name {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .storage-days {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -698,7 +698,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--dim);
 }
 
@@ -1112,7 +1112,7 @@ html, body {
         </div>
         <div class="vessel-mini-list" id="flagged-vessels">
           <h4>Flagged Vessels</h4>
-          <div id="flagged-vessel-list"><span style="font-size:11px;color:var(--dim)">Loading...</span></div>
+          <div id="flagged-vessel-list"><span style="font-size:13px;color:var(--dim)">Loading...</span></div>
         </div>
       </div>
 
@@ -1122,7 +1122,7 @@ html, body {
           <span class="card-title">Chokepoints</span>
         </div>
         <div id="chokepoint-list">
-          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+          <span style="font-size:13px;color:var(--dim)">Loading...</span>
         </div>
       </div>
 
@@ -1132,7 +1132,7 @@ html, body {
           <span class="card-title">Cargo Flows</span>
         </div>
         <div id="flow-list">
-          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+          <span style="font-size:13px;color:var(--dim)">Loading...</span>
         </div>
       </div>
     </div>
@@ -1158,7 +1158,7 @@ html, body {
           <button class="export-btn" onclick="exportCSV('prices')">CSV</button>
         </div>
         <div class="price-table" id="price-table">
-          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+          <span style="font-size:13px;color:var(--dim)">Loading...</span>
         </div>
       </div>
 
@@ -1176,7 +1176,7 @@ html, body {
           <span class="card-title">Storage & Supply</span>
         </div>
         <div id="storage-list">
-          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+          <span style="font-size:13px;color:var(--dim)">Loading...</span>
         </div>
       </div>
 
@@ -1186,7 +1186,7 @@ html, body {
           <span class="card-title">Refinery Status</span>
         </div>
         <div id="refinery-list">
-          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+          <span style="font-size:13px;color:var(--dim)">Loading...</span>
         </div>
       </div>
     </div>
@@ -1509,7 +1509,7 @@ function renderFlaggedVessels() {
   });
 
   if (flagged.length === 0) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No flagged vessels</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No flagged vessels</span>';
     return;
   }
 
@@ -1525,7 +1525,7 @@ function renderFlaggedVessels() {
 function renderChokepoints() {
   const container = document.getElementById('chokepoint-list');
   if (!allChokepoints.length) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No chokepoint data</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No chokepoint data</span>';
     return;
   }
 
@@ -1557,13 +1557,13 @@ function renderChokepoints() {
 function renderPrices() {
   const container = document.getElementById('price-table');
   if (!allPrices) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No price data</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No price data</span>';
     return;
   }
 
   const priceList = allPrices.prices || allPrices.data || (Array.isArray(allPrices) ? allPrices : []);
   if (!Array.isArray(priceList) || priceList.length === 0) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No price data</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No price data</span>';
     return;
   }
 
@@ -1589,7 +1589,7 @@ function renderPrices() {
 function renderStorage() {
   const container = document.getElementById('storage-list');
   if (!allStorage.length) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No storage data</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No storage data</span>';
     return;
   }
 
@@ -1626,13 +1626,13 @@ function renderStorage() {
 function renderFlows() {
   const container = document.getElementById('flow-list');
   if (!allFlows.length) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No flow data</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No flow data</span>';
     return;
   }
   container.innerHTML = allFlows.map(f => {
     const bbl = f.totalBbl >= 1000000 ? (f.totalBbl / 1000000).toFixed(1) + 'M' : fmt(f.totalBbl);
     return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--panel-border);font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--panel-border);font-size:14px">
         <span style="color:var(--amber)">${f.fromRegion} → ${f.toRegion}</span>
         <span style="color:var(--text)"><span style="color:var(--green);font-family:var(--font-mono)">${f.vesselCount}</span> ships · <span style="font-family:var(--font-mono)">${bbl}</span> bbl</span>
       </div>
@@ -1644,7 +1644,7 @@ function renderFlows() {
 function renderRefineries() {
   const container = document.getElementById('refinery-list');
   if (!allRefineries.length) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No refinery data</span>';
+    container.innerHTML = '<span style="font-size:13px;color:var(--dim)">No refinery data</span>';
     return;
   }
   container.innerHTML = allRefineries.map(r => {
@@ -1653,12 +1653,12 @@ function renderRefineries() {
     const cap = r.capacity_bpd >= 1000000 ? (r.capacity_bpd / 1000000).toFixed(1) + 'M' : Math.round(r.capacity_bpd / 1000) + 'K';
     return `
       <div style="padding:4px 0;border-bottom:1px solid var(--panel-border)">
-        <div style="display:flex;justify-content:space-between;font-size:11px">
+        <div style="display:flex;justify-content:space-between;font-size:14px">
           <span style="color:var(--text)">${r.name}</span>
           <span style="font-family:var(--font-mono);color:var(--${barCls === 'green' ? 'green' : barCls === 'amber' ? 'amber' : 'red'})">${pct}%</span>
         </div>
         <div class="choke-bar-wrap" style="margin-top:3px"><div class="choke-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div></div>
-        <div style="font-size:9px;color:var(--dim);margin-top:2px">${cap} bpd capacity</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:2px">${cap} bpd capacity</div>
       </div>
     `;
   }).join('');
@@ -1677,20 +1677,20 @@ function renderForecast() {
   const confColor = f.confidence === 'high' ? 'var(--green)' : f.confidence === 'medium' ? 'var(--amber)' : 'var(--dim)';
 
   container.innerHTML = `
-    <div style="font-size:10px;color:var(--dim);margin-bottom:8px;line-height:1.4">${f.explanation}</div>
-    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">
+    <div style="font-size:13px;color:var(--dim);margin-bottom:10px;line-height:1.5">${f.explanation}</div>
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:15px">
       <span>US Avg Gas</span>
       <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} $${f.us_avg_gas_forecast.toFixed(2)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:15px">
       <span>CA Gas</span>
       <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} $${f.us_ca_gas_forecast.toFixed(2)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:15px">
       <span>EU Gas</span>
       <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} €${f.eu_gas_forecast.toFixed(2)}</span>
     </div>
-    <div style="margin-top:6px;font-size:9px;color:${confColor}">Confidence: ${f.confidence.toUpperCase()} · Crude ${f.crude_trend}</div>
+    <div style="margin-top:8px;font-size:12px;color:${confColor}">Confidence: ${f.confidence.toUpperCase()} · Crude ${f.crude_trend}</div>
   `;
 }
 
