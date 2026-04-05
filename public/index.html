@@ -34,6 +34,7 @@
   --green: #00e676;
   --red: #ff1744;
   --blue: #448aff;
+  --magenta: #e040fb;
   --dim: #5a6a7a;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -49,17 +50,17 @@ html, body {
   line-height: 1.5;
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    SCROLLBAR
-   ═══════════════════════════════════════════ */
+   =============================================== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    LAYOUT
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #app {
   display: grid;
   grid-template-rows: auto auto auto 1fr auto auto;
@@ -67,9 +68,9 @@ html, body {
   width: 100%;
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    HEADER
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #header {
   display: flex;
   align-items: center;
@@ -160,11 +161,14 @@ html, body {
   letter-spacing: 1px;
   white-space: nowrap;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    ALERT BANNER
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #alert-banner {
   display: none;
   overflow: hidden;
@@ -197,9 +201,9 @@ html, body {
   100% { transform: translateX(-100%); }
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    TICKER
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #ticker {
   overflow: hidden;
   background: rgba(10, 22, 40, 0.6);
@@ -258,19 +262,20 @@ html, body {
 .ticker-warn { color: var(--amber); }
 .ticker-crit { color: var(--red); }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    MAIN CONTENT
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #main {
   display: grid;
   grid-template-columns: 420px 1fr 420px;
   gap: 0;
   overflow: hidden;
+  min-height: 500px;
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    PANELS (LEFT & RIGHT)
-   ═══════════════════════════════════════════ */
+   =============================================== */
 .panel {
   overflow-y: auto;
   padding: 12px;
@@ -366,6 +371,7 @@ html, body {
 .stat-value.red { color: var(--red); }
 .stat-value.blue { color: var(--blue); }
 .stat-value.white { color: var(--text-primary); }
+.stat-value.magenta { color: var(--magenta); }
 
 .stat-value.pulse {
   animation: pulseRed 1.5s ease-in-out infinite;
@@ -406,17 +412,41 @@ html, body {
 .vessel-mini-name {
   font-family: var(--font-mono);
   font-weight: 600;
-  color: var(--red);
 }
+
+.vessel-mini-name.flagged-red { color: var(--red); }
+.vessel-mini-name.flagged-magenta { color: var(--magenta); }
 
 .vessel-mini-loc {
   font-size: 10px;
   color: var(--dim);
   text-align: right;
-  max-width: 120px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.vessel-mini-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.vessel-mini-badge.sanction {
+  background: rgba(224, 64, 251, 0.15);
+  color: var(--magenta);
+  border: 1px solid rgba(224, 64, 251, 0.3);
+}
+
+.vessel-mini-badge.dark {
+  background: rgba(255, 23, 68, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(255, 23, 68, 0.3);
 }
 
 /* Chokepoint rows */
@@ -492,9 +522,9 @@ html, body {
   color: var(--dim);
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    GLOBE
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #globe-wrap {
   position: relative;
   overflow: hidden;
@@ -545,11 +575,6 @@ html, body {
 
 .zoom-btn:active {
   transform: scale(0.92);
-}
-
-/* Ensure globe-wrap always has height from grid */
-#main {
-  min-height: 500px;
 }
 
 #globe-tooltip {
@@ -645,9 +670,9 @@ html, body {
   color: var(--text-primary);
 }
 
-/* ═══════════════════════════════════════════
-   RIGHT PANEL — Prices
-   ═══════════════════════════════════════════ */
+/* ===============================================
+   RIGHT PANEL -- Prices
+   =============================================== */
 .price-table {
   width: 100%;
 }
@@ -687,6 +712,24 @@ html, body {
 
 .price-change.up { color: var(--green); }
 .price-change.down { color: var(--red); }
+
+/* Forecast panel */
+.forecast-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 15px;
+}
+
+.forecast-meta {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(26, 42, 74, 0.3);
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
 
 /* Storage rows */
 .storage-row {
@@ -745,9 +788,74 @@ html, body {
   color: var(--dim);
 }
 
-/* ═══════════════════════════════════════════
+/* Refinery rows */
+.refinery-row {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.3);
+}
+
+.refinery-row:last-child { border-bottom: none; }
+
+.refinery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+  font-size: 14px;
+}
+
+.refinery-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.refinery-pct {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.refinery-cap {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 2px;
+}
+
+/* Cargo flow rows */
+.flow-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.3);
+  font-size: 14px;
+}
+
+.flow-row:last-child { border-bottom: none; }
+
+.flow-route {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--amber);
+}
+
+.flow-stats {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.flow-ships {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.flow-bbl {
+  color: var(--text-primary);
+}
+
+/* ===============================================
    TIMELINE SLIDER
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #timeline {
   padding: 10px 20px;
   background: rgba(10, 22, 40, 0.4);
@@ -806,9 +914,9 @@ html, body {
   box-shadow: 0 0 8px rgba(245, 166, 35, 0.4);
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    FOOTER
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #footer {
   padding: 8px 20px;
   background: var(--bg);
@@ -834,9 +942,9 @@ html, body {
   color: var(--amber);
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    LOADING OVERLAY
-   ═══════════════════════════════════════════ */
+   =============================================== */
 #loading-overlay {
   position: fixed;
   top: 0;
@@ -896,9 +1004,9 @@ html, body {
   letter-spacing: 2px;
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    TABLET (< 1200px)
-   ═══════════════════════════════════════════ */
+   =============================================== */
 @media (max-width: 1200px) {
   #main {
     grid-template-columns: 1fr;
@@ -926,9 +1034,9 @@ html, body {
   }
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    MOBILE (< 768px)
-   ═══════════════════════════════════════════ */
+   =============================================== */
 @media (max-width: 768px) {
   html { font-size: 13px; }
 
@@ -984,6 +1092,7 @@ html, body {
   .header-right {
     text-align: center;
     font-size: 10px;
+    justify-content: center;
   }
 
   #ticker {
@@ -1002,8 +1111,8 @@ html, body {
   }
 
   .stat-box { padding: 6px !important; }
-  .stat-box .stat-val { font-size: 18px !important; }
-  .stat-box .stat-label { font-size: 8px !important; }
+  .stat-value { font-size: 18px !important; }
+  .stat-label { font-size: 8px !important; }
 
   .price-row {
     padding: 4px 0 !important;
@@ -1048,9 +1157,9 @@ html, body {
   .tanker-icon div { font-size: 5px !important; }
 }
 
-/* ═══════════════════════════════════════════
+/* ===============================================
    SMALL MOBILE (< 480px)
-   ═══════════════════════════════════════════ */
+   =============================================== */
 @media (max-width: 480px) {
   html { font-size: 12px; }
 
@@ -1084,7 +1193,7 @@ html, body {
 
 <div id="app">
 
-  <!-- ═══════════ HEADER ═══════════ -->
+  <!-- =========== HEADER =========== -->
   <header id="header">
     <div class="header-left">
       <span class="logo">&#x1F6E2;&#xFE0F; OILTRAC</span>
@@ -1098,23 +1207,23 @@ html, body {
     </div>
     <div class="header-right">
       <span id="header-clock">--</span>
-      <a href="https://github.com/nixfred/oiltrac" target="_blank" rel="noopener" style="margin-left:12px;color:var(--dim);text-decoration:none;font-size:13px;border:1px solid var(--panel-border);padding:3px 10px;border-radius:4px;transition:all 0.2s" onmouseover="this.style.color='var(--amber)';this.style.borderColor='var(--amber)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--panel-border)'">GitHub</a>
+      <a href="https://github.com/nixfred/oiltrac" target="_blank" rel="noopener" style="color:var(--dim);text-decoration:none;font-size:13px;border:1px solid var(--panel-border);padding:3px 10px;border-radius:4px;transition:all 0.2s" onmouseover="this.style.color='var(--amber)';this.style.borderColor='var(--amber)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--panel-border)'">GitHub</a>
     </div>
   </header>
 
-  <!-- ═══════════ ALERT BANNER ═══════════ -->
+  <!-- =========== ALERT BANNER =========== -->
   <div id="alert-banner">
     <div class="alert-content" id="alert-content"></div>
   </div>
 
-  <!-- ═══════════ TICKER ═══════════ -->
+  <!-- =========== TICKER =========== -->
   <div id="ticker">
     <div class="ticker-track" id="ticker-track">
       <span class="ticker-item" style="color:var(--dim);">Loading market data...</span>
     </div>
   </div>
 
-  <!-- ═══════════ MAIN CONTENT ═══════════ -->
+  <!-- =========== MAIN CONTENT =========== -->
   <div id="main">
 
     <!-- LEFT PANEL -->
@@ -1124,6 +1233,7 @@ html, body {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Fleet Status</span>
+          <button class="export-btn" onclick="downloadCSV('vessels')">CSV</button>
         </div>
         <div class="stats-grid" id="fleet-stats">
           <div class="stat-box">
@@ -1187,7 +1297,7 @@ html, body {
       <div id="globe-container"></div>
       <div id="globe-zoom-controls">
         <button class="zoom-btn" onclick="zoomGlobe(-0.5)" title="Zoom In">+</button>
-        <button class="zoom-btn" onclick="zoomGlobe(0.5)" title="Zoom Out">−</button>
+        <button class="zoom-btn" onclick="zoomGlobe(0.5)" title="Zoom Out">&minus;</button>
       </div>
       <div id="globe-tooltip"></div>
       <div id="vessel-detail">
@@ -1204,6 +1314,7 @@ html, body {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Energy Prices</span>
+          <button class="export-btn" onclick="downloadCSV('prices')">CSV</button>
         </div>
         <div class="price-table" id="price-table">
           <span style="font-size:13px;color:var(--dim)">Loading...</span>
@@ -1240,7 +1351,7 @@ html, body {
     </div>
   </div>
 
-  <!-- ═══════════ TIMELINE ═══════════ -->
+  <!-- =========== TIMELINE =========== -->
   <div id="timeline">
     <span class="timeline-label">Timeline</span>
     <span class="timeline-date" id="timeline-date">LIVE</span>
@@ -1248,21 +1359,21 @@ html, body {
     <button class="export-btn" id="timeline-live-btn" onclick="goLive()" style="display:none;">LIVE</button>
   </div>
 
-  <!-- ═══════════ FOOTER ═══════════ -->
+  <!-- =========== FOOTER =========== -->
   <footer id="footer">
-    <span class="footer-credits">Data: AIS &bull; EIA &bull; ICE &bull; OPEC &bull; MarineTraffic</span>
+    <span class="footer-credits">Data: AIS &bull; EIA &bull; ICE &bull; OPEC &bull; OFAC &bull; AGSI+ &bull; FRED</span>
     <span class="footer-updated" id="footer-updated">Last updated: --</span>
   </footer>
 
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-//  OILTRAC — Global Oil Intelligence Dashboard
+// ==========================================================
+//  OILTRAC v2 -- Global Oil Intelligence Dashboard
 //  Single-file frontend with Globe.gl
-// ═══════════════════════════════════════════════════════
+// ==========================================================
 
-// ── State ──
+// -- State --
 let globe = null;
 let allVessels = [];
 let allPorts = [];
@@ -1277,13 +1388,17 @@ let allSanctionedVessels = [];
 let allFlows = [];
 let allRefineries = [];
 let allForecast = null;
+let allCongestion = [];
 let selectedDate = null;
 let searchQuery = '';
 
-// Port coordinates for arc destinations
+// Port coordinates lookup for arc destinations
 const PORT_COORDS = {};
 
-// ── Utilities ──
+// Congestion trend lookup by port code
+const congestionMap = {};
+
+// -- Utilities --
 function fmt(n) {
   if (n == null) return '--';
   return Number(n).toLocaleString('en-US');
@@ -1317,16 +1432,6 @@ function statusColor(status) {
   return '#e0e6ed';
 }
 
-function vesselSize(type) {
-  const t = (type || '').toLowerCase();
-  if (t.includes('vlcc')) return 0.8;
-  if (t.includes('suezmax')) return 0.6;
-  if (t.includes('aframax')) return 0.5;
-  if (t.includes('lng')) return 0.4;
-  if (t.includes('product')) return 0.3;
-  return 0.4;
-}
-
 function chokeStatusClass(status) {
   const s = (status || '').toLowerCase();
   if (s === 'open' || s === 'normal') return 'open';
@@ -1353,14 +1458,20 @@ function storageBarClass(pct) {
   return 'red';
 }
 
-// ── Clock ──
+function trendIndicator(trend) {
+  if (trend === 'up') return '<span style="color:var(--red)">&#x25B2;</span>';
+  if (trend === 'down') return '<span style="color:var(--green)">&#x25BC;</span>';
+  return '<span style="color:var(--dim)">&mdash;</span>';
+}
+
+// -- Clock --
 function updateClock() {
   document.getElementById('header-clock').textContent = fmtDate(new Date());
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-// ── Data Fetching ──
+// -- Data Fetching --
 async function fetchJSON(url) {
   try {
     const r = await fetch(url);
@@ -1374,7 +1485,7 @@ async function fetchJSON(url) {
 
 async function loadAllData(date) {
   const qs = date ? `?date=${date}` : '';
-  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails, priceHist, sanctioned, flows, refineries, forecast] = await Promise.all([
+  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails, priceHist, sanctioned, flows, refineries, forecast, congestion] = await Promise.all([
     fetchJSON(`/api/vessels${qs}`),
     fetchJSON('/api/ports'),
     fetchJSON(`/api/chokepoints${qs}`),
@@ -1385,10 +1496,11 @@ async function loadAllData(date) {
     fetchJSON('/api/snapshot/dates'),
     fetchJSON('/api/vessels/trails'),
     fetchJSON('/api/prices/history?limit=2'),
-    fetchJSON('/api/sanctions/vessels'),
-    fetchJSON('/api/flows'),
+    fetchJSON(`/api/sanctions/vessels${qs}`),
+    fetchJSON(`/api/flows${qs}`),
     fetchJSON('/api/refineries'),
     fetchJSON('/api/prices/forecast'),
+    fetchJSON('/api/ports/congestion'),
   ]);
 
   if (vessels) allVessels = Array.isArray(vessels) ? vessels : (vessels.data || vessels.vessels || []);
@@ -1398,12 +1510,14 @@ async function loadAllData(date) {
       PORT_COORDS[p.name] = { lat: p.lat, lng: p.lng || p.lon };
       PORT_COORDS[p.name.toUpperCase()] = { lat: p.lat, lng: p.lng || p.lon };
       PORT_COORDS[p.name.toUpperCase().replace(/\s+/g, '_')] = { lat: p.lat, lng: p.lng || p.lon };
+      if (p.code) {
+        PORT_COORDS[p.code] = { lat: p.lat, lng: p.lng || p.lon };
+      }
     });
   }
   if (chokepoints) allChokepoints = Array.isArray(chokepoints) ? chokepoints : (chokepoints.data || chokepoints.chokepoints || []);
   if (prices) {
     if (!Array.isArray(prices) && !prices.prices && !prices.data && prices.brent_usd != null) {
-      // Compute % change from prior day if we have history
       const prev = (Array.isArray(priceHist) && priceHist.length > 1) ? priceHist[1] : null;
       function pctChg(cur, field) {
         if (!prev || !prev[field] || !cur) return 0;
@@ -1434,6 +1548,13 @@ async function loadAllData(date) {
   if (flows) allFlows = Array.isArray(flows) ? flows : [];
   if (refineries) allRefineries = Array.isArray(refineries) ? refineries : [];
   if (forecast) allForecast = forecast;
+  if (congestion) {
+    allCongestion = Array.isArray(congestion) ? congestion : [];
+    // Build lookup: code -> { ships, trend }
+    allCongestion.forEach(c => {
+      congestionMap[c.code] = { ships: c.ships, trend: c.trend };
+    });
+  }
 
   renderAll();
   flashUpdated();
@@ -1446,7 +1567,7 @@ function flashUpdated() {
   setTimeout(() => el.classList.remove('flash'), 2000);
 }
 
-// ── Render All ──
+// -- Render All --
 function renderAll() {
   renderAlerts();
   renderTicker();
@@ -1461,29 +1582,43 @@ function renderAll() {
   renderGlobe();
 }
 
-// ── Alerts ──
+// -- Alerts --
 function renderAlerts() {
   const banner = document.getElementById('alert-banner');
   const content = document.getElementById('alert-content');
 
-  if (!allAlerts || allAlerts.length === 0) {
+  // Merge sanctions matches into alerts
+  const alertItems = [...allAlerts];
+  const sanctionedMMSIs = new Set(allSanctionedVessels.map(s => s.mmsi));
+  allSanctionedVessels.forEach(sv => {
+    const existing = alertItems.find(a => a.message && a.message.includes(sv.mmsi));
+    if (!existing) {
+      alertItems.push({
+        type: 'sanctions',
+        severity: 'critical',
+        message: `SANCTIONED: ${sv.name} (${sv.mmsi}) -- ${sv.sanction_program || 'OFAC'}`,
+      });
+    }
+  });
+
+  if (!alertItems || alertItems.length === 0) {
     banner.classList.remove('active');
     return;
   }
 
   banner.classList.add('active');
-  content.innerHTML = allAlerts.map(a => {
+  content.innerHTML = alertItems.map(a => {
     const msg = a.message || a.text || a.description || JSON.stringify(a);
-    return `<span>\u26A0\uFE0F ALERT: ${msg}</span>`;
+    const icon = a.severity === 'critical' ? '\u{1F6A8}' : '\u26A0\uFE0F';
+    return `<span>${icon} ${msg}</span>`;
   }).join('');
 
-  // Adjust scroll duration based on content
   const totalWidth = content.scrollWidth;
   const duration = Math.max(15, totalWidth / 40);
   content.style.animationDuration = duration + 's';
 }
 
-// ── Ticker ──
+// -- Ticker --
 function renderTicker() {
   const track = document.getElementById('ticker-track');
   const items = [];
@@ -1506,21 +1641,25 @@ function renderTicker() {
   // Fleet summary
   if (allFleet) {
     const f = allFleet;
-    items.push(`<span class="ticker-item">FLEET: <strong>${f.total || f.total_vessels || f.totalVessels || '--'}</strong> vessels</span>`);
-    const bbl = f.totalBblInTransit || f.total_bbl_in_transit || f.bbl_in_transit || 0;
+    items.push(`<span class="ticker-item">FLEET: <strong>${f.total || '--'}</strong> vessels</span>`);
+    const bbl = f.totalBblInTransit || 0;
     if (bbl) items.push(`<span class="ticker-item">IN TRANSIT: <strong>${(bbl / 1e6).toFixed(1)}M</strong> bbl</span>`);
-    const dark = f.dark || f.ais_off || 0;
+    const dark = f.dark || 0;
     if (dark > 0) items.push(`<span class="ticker-item ticker-crit">DARK: <strong>${dark}</strong> vessels</span>`);
+  }
+
+  // Sanctions count
+  if (allSanctionedVessels.length > 0) {
+    items.push(`<span class="ticker-item" style="color:var(--magenta)">SANCTIONED: <strong>${allSanctionedVessels.length}</strong> vessels flagged</span>`);
   }
 
   // Chokepoints
   if (allChokepoints.length) {
     allChokepoints.forEach(c => {
       const name = (c.name || '').toUpperCase();
-      const pct = c.pct_of_normal || c.pct_normal || c.pctNormal || c.throughput_pct || 100;
+      const pct = c.pct_of_normal || 100;
       const cls = pct < 50 ? 'ticker-crit' : pct < 80 ? 'ticker-warn' : '';
-      const icon = pct < 50 ? ' \uD83D\uDD34' : pct < 80 ? ' \u26A0\uFE0F' : '';
-      items.push(`<span class="ticker-item ${cls}">${name}: ${pct}%${icon}</span>`);
+      items.push(`<span class="ticker-item ${cls}">${name}: ${Math.round(pct)}%</span>`);
     });
   }
 
@@ -1533,27 +1672,52 @@ function renderTicker() {
   track.innerHTML = html + '<span class="ticker-sep">\u2502</span>' + html;
 }
 
-// ── Fleet Stats ──
+// -- Fleet Stats --
 function renderFleetStats() {
   if (!allFleet) return;
   const f = allFleet;
-  document.getElementById('stat-total').textContent = fmt(f.total || f.total_vessels || f.totalVessels || 0);
+  document.getElementById('stat-total').textContent = fmt(f.total || 0);
   document.getElementById('stat-underway').textContent = fmt(f.underway || 0);
-  document.getElementById('stat-anchor').textContent = fmt(f.anchor || f.at_anchor || f.atAnchor || 0);
+  document.getElementById('stat-anchor').textContent = fmt(f.anchor || 0);
   document.getElementById('stat-stranded').textContent = fmt(f.stranded || 0);
   document.getElementById('stat-ballast').textContent = fmt(f.ballast || 0);
-  document.getElementById('stat-dark').textContent = fmt(f.dark || f.ais_off || 0);
-
-  const bbl = f.totalBblInTransit || f.total_bbl_in_transit || f.bbl_in_transit || 0;
-  document.getElementById('stat-bbl').textContent = fmt(bbl);
+  document.getElementById('stat-dark').textContent = fmt(f.dark || 0);
+  document.getElementById('stat-bbl').textContent = fmt(f.totalBblInTransit || 0);
 }
 
-// ── Flagged Vessels ──
+// -- Flagged Vessels --
 function renderFlaggedVessels() {
   const container = document.getElementById('flagged-vessel-list');
-  const flagged = allVessels.filter(v => {
+  const sanctionedMMSIs = new Set(allSanctionedVessels.map(s => s.mmsi));
+
+  // Collect flagged: stranded, dark, and sanctioned
+  const flagged = [];
+  const seen = new Set();
+
+  // Sanctioned vessels first
+  allSanctionedVessels.forEach(sv => {
+    if (!seen.has(sv.mmsi)) {
+      seen.add(sv.mmsi);
+      flagged.push({
+        name: sv.name || 'UNKNOWN',
+        dest: sv.destination || sv.sanction_program || '--',
+        type: 'sanction',
+        program: sv.sanction_program || '',
+      });
+    }
+  });
+
+  // Stranded/dark vessels
+  allVessels.forEach(v => {
     const s = (v.status || '').toLowerCase();
-    return s === 'stranded' || s === 'dark' || s === 'ais_off' || s === 'ais off';
+    if ((s === 'stranded' || s === 'dark' || s === 'ais_off' || s === 'ais off') && !seen.has(v.mmsi)) {
+      seen.add(v.mmsi);
+      flagged.push({
+        name: v.name || 'UNKNOWN',
+        dest: v.destination || '--',
+        type: s === 'stranded' ? 'stranded' : 'dark',
+      });
+    }
   });
 
   if (flagged.length === 0) {
@@ -1561,15 +1725,22 @@ function renderFlaggedVessels() {
     return;
   }
 
-  container.innerHTML = flagged.slice(0, 8).map(v => `
-    <div class="vessel-mini-item">
-      <span class="vessel-mini-name">${v.name || v.vessel_name || 'UNKNOWN'}</span>
-      <span class="vessel-mini-loc">${v.destination || v.last_port || v.location || '--'}</span>
-    </div>
-  `).join('');
+  container.innerHTML = flagged.slice(0, 10).map(f => {
+    const nameClass = f.type === 'sanction' ? 'flagged-magenta' : 'flagged-red';
+    const badge = f.type === 'sanction'
+      ? `<span class="vessel-mini-badge sanction">${f.program || 'OFAC'}</span>`
+      : `<span class="vessel-mini-badge dark">${f.type.toUpperCase()}</span>`;
+    return `
+      <div class="vessel-mini-item">
+        <span class="vessel-mini-name ${nameClass}">${f.name}</span>
+        ${badge}
+        <span class="vessel-mini-loc">${f.dest}</span>
+      </div>
+    `;
+  }).join('');
 }
 
-// ── Chokepoints ──
+// -- Chokepoints --
 function renderChokepoints() {
   const container = document.getElementById('chokepoint-list');
   if (!allChokepoints.length) {
@@ -1580,9 +1751,9 @@ function renderChokepoints() {
   container.innerHTML = allChokepoints.map(c => {
     const name = c.name || 'Unknown';
     const status = c.status || 'open';
-    const pct = c.pct_of_normal || c.pct_normal || c.pctNormal || c.throughput_pct || 100;
-    const current = c.current_daily_vessels || c.vessels_per_day || c.current_flow || 0;
-    const normal = c.baseline_daily_vessels || c.normal_flow || c.capacity || 0;
+    const pct = c.pct_of_normal || 100;
+    const current = c.current_daily_vessels || 0;
+    const normal = c.baseline_daily_vessels || 0;
     const cls = chokeStatusClass(status);
     const barCls = chokeBarClass(pct);
 
@@ -1595,13 +1766,13 @@ function renderChokepoints() {
         <div class="choke-bar-wrap">
           <div class="choke-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div>
         </div>
-        <div class="choke-detail">${current}${normal ? '/' + normal : ''} vessels/day &middot; ${pct}% normal</div>
+        <div class="choke-detail">${current}${normal ? '/' + normal : ''} vessels/day &middot; ${Math.round(pct)}% normal</div>
       </div>
     `;
   }).join('');
 }
 
-// ── Prices ──
+// -- Prices --
 function renderPrices() {
   const container = document.getElementById('price-table');
   if (!allPrices) {
@@ -1633,7 +1804,7 @@ function renderPrices() {
   }).join('');
 }
 
-// ── Storage ──
+// -- Storage --
 function renderStorage() {
   const container = document.getElementById('storage-list');
   if (!allStorage.length) {
@@ -1643,9 +1814,9 @@ function renderStorage() {
 
   container.innerHTML = allStorage.map(s => {
     const name = s.region || s.name || 'Unknown';
-    const amount = s.crude_storage_bbl || s.storage_bbl || s.storageBbl || s.amount || 0;
-    const days = s.days_of_supply || s.daysOfSupply || s.runway_days || 0;
-    const pct = s.pct_capacity || s.pctCapacity || s.capacity_pct || 0;
+    const amount = s.crude_storage_bbl || 0;
+    const days = s.days_of_supply || 0;
+    const pct = s.pct_capacity || 0;
     const statusCls = storageStatusClass(days);
     const barCls = storageBarClass(pct);
     const amountStr = amount >= 1e9 ? (amount / 1e9).toFixed(1) + 'B bbl' :
@@ -1670,7 +1841,7 @@ function renderStorage() {
   }).join('');
 }
 
-// ── Cargo Flows ──
+// -- Cargo Flows --
 function renderFlows() {
   const container = document.getElementById('flow-list');
   if (!allFlows.length) {
@@ -1680,15 +1851,15 @@ function renderFlows() {
   container.innerHTML = allFlows.map(f => {
     const bbl = f.totalBbl >= 1000000 ? (f.totalBbl / 1000000).toFixed(1) + 'M' : fmt(f.totalBbl);
     return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--panel-border);font-size:14px">
-        <span style="color:var(--amber)">${f.fromRegion} → ${f.toRegion}</span>
-        <span style="color:var(--text)"><span style="color:var(--green);font-family:var(--font-mono)">${f.vesselCount}</span> ships · <span style="font-family:var(--font-mono)">${bbl}</span> bbl</span>
+      <div class="flow-row">
+        <span class="flow-route">${f.fromRegion} &#x2192; ${f.toRegion}</span>
+        <span class="flow-stats"><span class="flow-ships">${f.vesselCount}</span> ships &middot; <span class="flow-bbl">${bbl}</span> bbl</span>
       </div>
     `;
   }).join('');
 }
 
-// ── Refineries ──
+// -- Refineries --
 function renderRefineries() {
   const container = document.getElementById('refinery-list');
   if (!allRefineries.length) {
@@ -1698,21 +1869,24 @@ function renderRefineries() {
   container.innerHTML = allRefineries.map(r => {
     const pct = r.utilization_pct || 0;
     const barCls = pct >= 85 ? 'green' : pct >= 70 ? 'amber' : 'red';
+    const colorVar = barCls === 'green' ? 'var(--green)' : barCls === 'amber' ? 'var(--amber)' : 'var(--red)';
     const cap = r.capacity_bpd >= 1000000 ? (r.capacity_bpd / 1000000).toFixed(1) + 'M' : Math.round(r.capacity_bpd / 1000) + 'K';
     return `
-      <div style="padding:4px 0;border-bottom:1px solid var(--panel-border)">
-        <div style="display:flex;justify-content:space-between;font-size:14px">
-          <span style="color:var(--text)">${r.name}</span>
-          <span style="font-family:var(--font-mono);color:var(--${barCls === 'green' ? 'green' : barCls === 'amber' ? 'amber' : 'red'})">${pct}%</span>
+      <div class="refinery-row">
+        <div class="refinery-header">
+          <span class="refinery-name">${r.name}</span>
+          <span class="refinery-pct" style="color:${colorVar}">${pct}%</span>
         </div>
-        <div class="choke-bar-wrap" style="margin-top:3px"><div class="choke-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div></div>
-        <div style="font-size:11px;color:var(--dim);margin-top:2px">${cap} bpd capacity</div>
+        <div class="choke-bar-wrap" style="margin-top:3px">
+          <div class="choke-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div>
+        </div>
+        <div class="refinery-cap">${cap} bpd capacity &middot; ${r.region || ''}</div>
       </div>
     `;
   }).join('');
 }
 
-// ── Price Forecast ──
+// -- Price Forecast --
 function renderForecast() {
   const card = document.getElementById('forecast-card');
   const container = document.getElementById('forecast-content');
@@ -1720,29 +1894,32 @@ function renderForecast() {
   card.style.display = 'block';
 
   const f = allForecast;
-  const trendIcon = f.crude_trend === 'rising' ? '▲' : f.crude_trend === 'falling' ? '▼' : '▶';
+  const trendIcon = f.crude_trend === 'rising' ? '\u25B2' : f.crude_trend === 'falling' ? '\u25BC' : '\u25B6';
   const trendColor = f.crude_trend === 'rising' ? 'var(--red)' : f.crude_trend === 'falling' ? 'var(--green)' : 'var(--amber)';
   const confColor = f.confidence === 'high' ? 'var(--green)' : f.confidence === 'medium' ? 'var(--amber)' : 'var(--dim)';
 
   container.innerHTML = `
     <div style="font-size:13px;color:var(--dim);margin-bottom:10px;line-height:1.5">${f.explanation}</div>
-    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:15px">
+    <div class="forecast-row">
       <span>US Avg Gas</span>
-      <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} $${f.us_avg_gas_forecast.toFixed(2)}</span>
+      <span style="font-family:var(--font-mono);font-weight:700;color:${trendColor}">${trendIcon} $${f.us_avg_gas_forecast.toFixed(2)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:15px">
+    <div class="forecast-row">
       <span>CA Gas</span>
-      <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} $${f.us_ca_gas_forecast.toFixed(2)}</span>
+      <span style="font-family:var(--font-mono);font-weight:700;color:${trendColor}">${trendIcon} $${f.us_ca_gas_forecast.toFixed(2)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:15px">
+    <div class="forecast-row">
       <span>EU Gas</span>
-      <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} €${f.eu_gas_forecast.toFixed(2)}</span>
+      <span style="font-family:var(--font-mono);font-weight:700;color:${trendColor}">${trendIcon} \u20AC${f.eu_gas_forecast.toFixed(2)}</span>
     </div>
-    <div style="margin-top:8px;font-size:12px;color:${confColor}">Confidence: ${f.confidence.toUpperCase()} · Crude ${f.crude_trend}</div>
+    <div class="forecast-meta">
+      <span style="color:${confColor}">Confidence: ${f.confidence.toUpperCase()}</span>
+      <span style="color:${trendColor}">Crude ${f.crude_trend} &middot; by ${f.forecast_date || '--'}</span>
+    </div>
   `;
 }
 
-// ── Timeline ──
+// -- Timeline --
 function setupTimeline() {
   const slider = document.getElementById('timeline-slider');
   if (!snapshotDates.length) {
@@ -1750,8 +1927,8 @@ function setupTimeline() {
     slider.value = 0;
     return;
   }
-  slider.max = snapshotDates.length; // index 0 = first date, max index = LIVE
-  slider.value = snapshotDates.length; // default to LIVE
+  slider.max = snapshotDates.length;
+  slider.value = snapshotDates.length;
 }
 
 document.getElementById('timeline-slider').addEventListener('input', function() {
@@ -1760,7 +1937,6 @@ document.getElementById('timeline-slider').addEventListener('input', function() 
   const dateEl = document.getElementById('timeline-date');
 
   if (idx >= snapshotDates.length) {
-    // Live mode
     selectedDate = null;
     dateEl.textContent = 'LIVE';
     dateEl.style.color = 'var(--green)';
@@ -1785,13 +1961,22 @@ function goLive() {
   loadAllData();
 }
 
-// ── Globe ──
+// -- CSV Export --
+function downloadCSV(type) {
+  const url = type === 'vessels' ? '/api/export/vessels.csv' : '/api/export/prices.csv';
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = type + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// -- Globe --
 function initGlobe() {
   const container = document.getElementById('globe-container');
   const wrap = document.getElementById('globe-wrap');
 
-  // Always force explicit pixel dimensions before Globe init.
-  // CSS grid 1fr can resolve to 0 on some browsers/timing.
   const fallbackW = window.innerWidth - 840;
   const fallbackH = Math.max(400, window.innerHeight - 300);
   wrap.style.minHeight = fallbackH + 'px';
@@ -1801,15 +1986,13 @@ function initGlobe() {
   container.style.height = h + 'px';
 
   globe = Globe()
-    .globeImageUrl('https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x5400x2700.jpg')
-    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-    .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
     .showAtmosphere(true)
     .atmosphereColor('#1a3a6a')
     .atmosphereAltitude(0.15)
-    // Hide default points layer — we use htmlElements for tanker icons
     .pointsData([])
-    // Arcs removed — replaced by paths
     .arcsData([])
     .labelText('text')
     .labelColor(() => '#f5a623')
@@ -1833,12 +2016,11 @@ function initGlobe() {
     .height(h)
     (container);
 
-  // Set initial camera
+  // Set initial camera -- looking at the Persian Gulf
   globe.pointOfView({ lat: 25, lng: 45, altitude: 2.5 });
 
   // Track zoom level for icon/label scaling
   let currentAlt = 2.5;
-  const scene = globe.scene();
   const controls = globe.controls();
   if (controls) {
     controls.addEventListener('change', () => {
@@ -1850,7 +2032,7 @@ function initGlobe() {
     });
   }
 
-  // Handle resize — watch the wrap, update container + globe
+  // Handle resize
   const ro = new ResizeObserver(() => {
     if (globe && wrap.clientWidth > 100 && wrap.clientHeight > 100) {
       container.style.width = wrap.clientWidth + 'px';
@@ -1874,14 +2056,11 @@ function zoomGlobe(delta) {
 function positionTooltipNearIcon(iconEl, tooltip) {
   const wrapRect = document.getElementById('globe-wrap').getBoundingClientRect();
   const iconRect = iconEl.getBoundingClientRect();
-  // Position to the right of the icon
   let left = iconRect.right - wrapRect.left + 10;
   let top = iconRect.top - wrapRect.top - 10;
-  // If tooltip would overflow right edge, put it on the left
   if (left + 260 > wrapRect.width) {
     left = iconRect.left - wrapRect.left - 270;
   }
-  // Keep within vertical bounds
   if (top + 200 > wrapRect.height) {
     top = wrapRect.height - 210;
   }
@@ -1898,7 +2077,7 @@ function scaleElements(alt) {
   });
 }
 
-// SVG tanker icon — returns an HTML element
+// SVG tanker icon -- returns an HTML element
 function createTankerIcon(color, heading, vessel) {
   const wrapper = document.createElement('div');
   wrapper.className = 'tanker-icon';
@@ -1915,19 +2094,30 @@ function createTankerIcon(color, heading, vessel) {
     <div style="font-size:11px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 3px #000,0 0 6px #000;font-family:var(--font-mono)">${name}</div>
   `;
 
-  // Hover tooltip — anchored next to the icon
+  // Hover tooltip -- anchored next to the icon
   wrapper.addEventListener('mouseenter', () => {
     const tooltip = document.getElementById('globe-tooltip');
     const v = vessel;
     const cargo = v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : '--';
+    const sanctionedMMSIs = new Set(allSanctionedVessels.map(s => s.mmsi));
+    const isSanctioned = sanctionedMMSIs.has(v.mmsi);
+    const sanctionInfo = isSanctioned ? allSanctionedVessels.find(s => s.mmsi === v.mmsi) : null;
+
+    let sanctionRow = '';
+    if (isSanctioned && sanctionInfo) {
+      sanctionRow = `<div class="tt-row"><span class="tt-label">Sanctions</span><span class="tt-val" style="color:var(--magenta)">${sanctionInfo.sanction_source || 'OFAC'} / ${sanctionInfo.sanction_program || '--'}</span></div>`;
+    }
+
     tooltip.innerHTML = `
-      <div class="tt-name">${name}</div>
+      <div class="tt-name">${isSanctioned ? '\u{1F7E3} ' : ''}${name}</div>
       <div class="tt-row"><span class="tt-label">MMSI</span><span class="tt-val">${v.mmsi || '--'}</span></div>
       <div class="tt-row"><span class="tt-label">Status</span><span class="tt-val" style="color:${color}">${(v.status || '').toUpperCase()}</span></div>
       <div class="tt-row"><span class="tt-label">Speed</span><span class="tt-val">${v.speed || 0} kn</span></div>
       <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${v.vessel_class || '--'}</span></div>
       <div class="tt-row"><span class="tt-label">Cargo</span><span class="tt-val">${cargo}</span></div>
       <div class="tt-row"><span class="tt-label">Dest</span><span class="tt-val">${v.destination || '--'}</span></div>
+      <div class="tt-row"><span class="tt-label">Flag</span><span class="tt-val">${v.flag || '--'}</span></div>
+      ${sanctionRow}
     `;
     tooltip.style.display = 'block';
     positionTooltipNearIcon(wrapper, tooltip);
@@ -1940,31 +2130,54 @@ function createTankerIcon(color, heading, vessel) {
   wrapper.addEventListener('click', () => {
     const v = vessel;
     globe.pointOfView({ lat: v.lat, lng: v.lng, altitude: 1.2 }, 1000);
-    const detail = document.getElementById('vessel-detail');
-    document.getElementById('detail-name').textContent = name;
-    const cargo = v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : '--';
-    const grid = document.getElementById('detail-grid');
-    grid.innerHTML = [
-      ['MMSI', v.mmsi || '--'],
-      ['Type', v.vessel_class || '--'],
-      ['Status', `<span style="color:${color}">${(v.status || '').toUpperCase()}</span>`],
-      ['Speed', `${v.speed || 0} kn`],
-      ['Cargo', cargo],
-      ['Destination', v.destination || '--'],
-      ['Position', `${(v.lat||0).toFixed(3)}, ${(v.lng||0).toFixed(3)}`],
-    ].map(([l, val]) => `<span class="detail-label">${l}</span><span class="detail-val">${val}</span>`).join('');
-    detail.classList.add('active');
+    showVesselDetail(v, color);
   });
 
   return wrapper;
 }
 
+function showVesselDetail(v, color) {
+  const detail = document.getElementById('vessel-detail');
+  const name = v.name || 'Unknown';
+  document.getElementById('detail-name').textContent = name;
+  document.getElementById('detail-name').style.color = color === '#e040fb' ? 'var(--magenta)' : 'var(--amber)';
+
+  const cargo = v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : '--';
+  const sanctionedMMSIs = new Set(allSanctionedVessels.map(s => s.mmsi));
+  const isSanctioned = sanctionedMMSIs.has(v.mmsi);
+  const sanctionInfo = isSanctioned ? allSanctionedVessels.find(s => s.mmsi === v.mmsi) : null;
+
+  const fields = [
+    ['MMSI', v.mmsi || '--'],
+    ['Type', v.vessel_class || '--'],
+    ['Flag', v.flag || '--'],
+    ['Status', `<span style="color:${statusColor(v.status)}">${(v.status || '').toUpperCase()}</span>`],
+    ['Speed', `${v.speed || 0} kn`],
+    ['Heading', `${v.heading || 0}\u00B0`],
+    ['Draught', `${v.draught || '--'} / ${v.max_draught || '--'} m`],
+    ['Cargo', cargo],
+    ['Destination', v.destination || '--'],
+    ['ETA', v.eta || '--'],
+    ['Position', `${(v.lat||0).toFixed(3)}, ${(v.lng||0).toFixed(3)}`],
+  ];
+
+  if (isSanctioned && sanctionInfo) {
+    fields.push(['Sanctions', `<span style="color:var(--magenta)">${sanctionInfo.sanction_source || 'OFAC'} / ${sanctionInfo.sanction_program || '--'}</span>`]);
+  }
+
+  const grid = document.getElementById('detail-grid');
+  grid.innerHTML = fields.map(([l, val]) => `<span class="detail-label">${l}</span><span class="detail-val">${val}</span>`).join('');
+  detail.classList.add('active');
+}
+
+function closeVesselDetail() {
+  document.getElementById('vessel-detail').classList.remove('active');
+}
+
 function renderGlobe() {
   if (!globe) return;
 
-  const vessels = getFilteredVessels();
-
-  // Build set of sanctioned MMSIs for fast lookup
+  const vessels = allVessels;
   const sanctionedMMSIs = new Set(allSanctionedVessels.map(s => s.mmsi));
 
   // HTML tanker icons
@@ -1986,29 +2199,39 @@ function renderGlobe() {
     }
     const el = createTankerIcon(color, v.heading, v);
     if (dimmed) el.style.opacity = '0.2';
-    return {
-      lat: v.lat || 0,
-      lng: v.lng || 0,
-      el,
-    };
+    return { lat: v.lat || 0, lng: v.lng || 0, el };
   });
-  // Add port markers as HTML elements with hover details
+
+  // Port markers as HTML elements with hover details + congestion trend
   for (const p of allPorts) {
     const el = document.createElement('div');
     el.className = 'tanker-icon port-label';
     el.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;';
-    el.innerHTML = `<div style="width:8px;height:8px;background:var(--amber);border-radius:50%;margin:0 auto;box-shadow:0 0 4px var(--amber)"></div>
-      <div style="font-size:14px;color:var(--amber);white-space:nowrap;margin-top:2px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono);font-weight:600">${p.name || p.port_name}</div>`;
+    const cong = congestionMap[p.code] || {};
+    const trendSymbol = cong.trend === 'up' ? ' \u25B2' : cong.trend === 'down' ? ' \u25BC' : '';
+    const trendStyle = cong.trend === 'up' ? 'color:var(--red)' : cong.trend === 'down' ? 'color:var(--green)' : '';
+    el.innerHTML = `
+      <div style="width:8px;height:8px;background:var(--amber);border-radius:50%;margin:0 auto;box-shadow:0 0 4px var(--amber)"></div>
+      <div style="font-size:14px;color:var(--amber);white-space:nowrap;margin-top:2px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono);font-weight:600">${p.name || p.port_name}<span style="${trendStyle}">${trendSymbol}</span></div>
+    `;
+
     el.addEventListener('mouseenter', () => {
       const tooltip = document.getElementById('globe-tooltip');
       const cap = p.capacity_bpd >= 1000000 ? (p.capacity_bpd / 1000000).toFixed(1) + 'M' : Math.round(p.capacity_bpd / 1000) + 'K';
+      const bblIn = p.barrels_inbound >= 1000000 ? (p.barrels_inbound / 1000000).toFixed(1) + 'M' : fmt(p.barrels_inbound || 0);
+      const congTrend = cong.trend === 'up' ? '<span style="color:var(--red)">\u25B2 Rising</span>'
+                      : cong.trend === 'down' ? '<span style="color:var(--green)">\u25BC Falling</span>'
+                      : '<span style="color:var(--dim)">\u2014 Stable</span>';
       tooltip.innerHTML = `
-        <div class="tt-name">⚓ ${p.name || p.port_name}</div>
+        <div class="tt-name">\u2693 ${p.name || p.port_name}</div>
         <div class="tt-row"><span class="tt-label">Country</span><span class="tt-val">${p.country || '--'}</span></div>
         <div class="tt-row"><span class="tt-label">Region</span><span class="tt-val">${p.region || '--'}</span></div>
         <div class="tt-row"><span class="tt-label">Capacity</span><span class="tt-val">${cap} bpd</span></div>
         <div class="tt-row"><span class="tt-label">Ships In</span><span class="tt-val">${p.ships_inbound || 0}</span></div>
+        <div class="tt-row"><span class="tt-label">Bbl Inbound</span><span class="tt-val">${bblIn}</span></div>
         <div class="tt-row"><span class="tt-label">Storage</span><span class="tt-val">${p.storage_pct || 0}%</span></div>
+        <div class="tt-row"><span class="tt-label">Congestion</span><span class="tt-val">${congTrend}</span></div>
+        <div class="tt-row"><span class="tt-label">Next ETA</span><span class="tt-val">${p.next_arrival_eta || '--'}</span></div>
       `;
       tooltip.style.display = 'block';
       positionTooltipNearIcon(el, tooltip);
@@ -2019,15 +2242,34 @@ function renderGlobe() {
     htmlData.push({ lat: p.lat, lng: p.lng || p.lon, el });
   }
 
-  // Add refinery markers as HTML elements
+  // Refinery markers as HTML elements
   for (const r of allRefineries) {
     const el = document.createElement('div');
     el.className = 'tanker-icon refinery-label';
     el.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;';
     const pct = r.utilization_pct || 0;
     const color = pct >= 85 ? 'var(--green)' : pct >= 70 ? 'var(--amber)' : 'var(--red)';
-    el.innerHTML = `<div style="width:6px;height:6px;background:${color};border-radius:50%;margin:0 auto;box-shadow:0 0 3px ${color}"></div>
-      <div style="font-size:12px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono)">⛽ ${r.name}</div>`;
+    const cap = r.capacity_bpd >= 1000000 ? (r.capacity_bpd / 1000000).toFixed(1) + 'M' : Math.round(r.capacity_bpd / 1000) + 'K';
+    el.innerHTML = `
+      <div style="width:6px;height:6px;background:${color};border-radius:50%;margin:0 auto;box-shadow:0 0 3px ${color}"></div>
+      <div style="font-size:12px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono)">\u26FD ${r.name}</div>
+    `;
+
+    el.addEventListener('mouseenter', () => {
+      const tooltip = document.getElementById('globe-tooltip');
+      tooltip.innerHTML = `
+        <div class="tt-name">\u26FD ${r.name}</div>
+        <div class="tt-row"><span class="tt-label">Region</span><span class="tt-val">${r.region || '--'}</span></div>
+        <div class="tt-row"><span class="tt-label">Capacity</span><span class="tt-val">${cap} bpd</span></div>
+        <div class="tt-row"><span class="tt-label">Utilization</span><span class="tt-val" style="color:${color}">${pct}%</span></div>
+        <div class="tt-row"><span class="tt-label">Source</span><span class="tt-val">${r.source || '--'}</span></div>
+      `;
+      tooltip.style.display = 'block';
+      positionTooltipNearIcon(el, tooltip);
+    });
+    el.addEventListener('mouseleave', () => {
+      document.getElementById('globe-tooltip').style.display = 'none';
+    });
     htmlData.push({ lat: r.lat, lng: r.lng, el });
   }
 
@@ -2047,21 +2289,29 @@ function renderGlobe() {
     });
   globe.ringsData(ringsData);
 
-  // Build vessel lookup for status colors
+  // Build vessel lookup for trail colors
   const vesselStatusMap = new Map();
   for (const v of vessels) {
-    vesselStatusMap.set(v.mmsi, v.status || 'underway');
+    vesselStatusMap.set(v.mmsi, { status: v.status || 'underway', sanctioned: sanctionedMMSIs.has(v.mmsi) });
   }
 
-  // Paths — status-colored, solid for history, dotted for future route
+  // Paths -- status-colored, solid for history, dotted for future route
   const pathsData = [];
 
-  // Historical trails — solid thin lines in vessel status color
+  // Historical trails -- solid thin lines in vessel status color
   for (const t of allTrails) {
     if (!t.trail || t.trail.length < 2) continue;
-    const status = (vesselStatusMap.get(t.mmsi) || 'underway').toLowerCase();
+    const info = vesselStatusMap.get(t.mmsi) || { status: 'underway', sanctioned: false };
+    const status = info.status.toLowerCase();
     const isOk = status === 'underway' || status === 'ballast';
-    const c = isOk ? 'rgba(0,230,118,0.5)' : 'rgba(255,23,68,0.5)';
+    let c;
+    if (info.sanctioned) {
+      c = 'rgba(224,64,251,0.5)';
+    } else if (isOk) {
+      c = 'rgba(0,230,118,0.5)';
+    } else {
+      c = 'rgba(255,23,68,0.5)';
+    }
     pathsData.push({
       points: t.trail.map(p => ({ lat: p.lat, lng: p.lng })),
       color: c,
@@ -2071,17 +2321,27 @@ function renderGlobe() {
     });
   }
 
-  // Future routes — dotted lines in vessel status color
+  // Future routes -- dotted lines from current position to destination port
   for (const v of vessels) {
-    const dest = v.destination || v.dest_port;
-    if (!dest || !PORT_COORDS[dest]) continue;
-    const lat = v.lat || v.latitude;
-    const lng = v.lng || v.lon || v.longitude;
+    const dest = v.destination;
+    if (!dest) continue;
+    // Try to match destination to a known port
+    const dc = PORT_COORDS[dest] || PORT_COORDS[dest.toUpperCase()] || PORT_COORDS[dest.toUpperCase().replace(/\s+/g, '_')];
+    if (!dc) continue;
+    const lat = v.lat;
+    const lng = v.lng;
     if (!lat) continue;
-    const dc = PORT_COORDS[dest];
-    const status = (v.status || 'underway').toLowerCase();
+    const info = vesselStatusMap.get(v.mmsi) || { status: 'underway', sanctioned: false };
+    const status = info.status.toLowerCase();
     const isOk = status === 'underway' || status === 'ballast';
-    const c = isOk ? 'rgba(0,230,118,0.3)' : 'rgba(255,23,68,0.3)';
+    let c;
+    if (info.sanctioned) {
+      c = 'rgba(224,64,251,0.3)';
+    } else if (isOk) {
+      c = 'rgba(0,230,118,0.3)';
+    } else {
+      c = 'rgba(255,23,68,0.3)';
+    }
     pathsData.push({
       points: [{ lat, lng }, { lat: dc.lat, lng: dc.lng }],
       color: c,
@@ -2098,98 +2358,7 @@ function renderGlobe() {
   if (pov) scaleElements(pov.altitude);
 }
 
-function getVesselPointColor(v) {
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    const name = (v.name || v.vessel_name || '').toLowerCase();
-    const mmsi = String(v.mmsi || '');
-    const dest = (v.destination || '').toLowerCase();
-    const matches = name.includes(q) || mmsi.includes(q) || dest.includes(q);
-    if (!matches) return 'rgba(90,106,122,0.3)';
-  }
-  return statusColor(v.status);
-}
-
-function getFilteredVessels() {
-  return allVessels;
-}
-
-// ── Tooltip ──
-function handlePointHover(point, prevPoint) {
-  const tooltip = document.getElementById('globe-tooltip');
-  if (!point) {
-    tooltip.style.display = 'none';
-    return;
-  }
-
-  tooltip.innerHTML = `
-    <div class="tt-name">${point.name}</div>
-    <div class="tt-row"><span class="tt-label">MMSI</span><span class="tt-val">${point.mmsi}</span></div>
-    <div class="tt-row"><span class="tt-label">Status</span><span class="tt-val" style="color:${statusColor(point.status)}">${(point.status || '').toUpperCase()}</span></div>
-    <div class="tt-row"><span class="tt-label">Speed</span><span class="tt-val">${point.speed} kn</span></div>
-    <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${point.type}</span></div>
-    <div class="tt-row"><span class="tt-label">Cargo</span><span class="tt-val">${point.cargo}</span></div>
-    <div class="tt-row"><span class="tt-label">Dest</span><span class="tt-val">${point.destination}</span></div>
-  `;
-  tooltip.style.display = 'block';
-
-  // Follow mouse
-  document.addEventListener('mousemove', moveTooltip);
-}
-
-function moveTooltip(e) {
-  const tooltip = document.getElementById('globe-tooltip');
-  if (tooltip.style.display === 'none') {
-    document.removeEventListener('mousemove', moveTooltip);
-    return;
-  }
-  const globeRect = document.getElementById('globe-wrap').getBoundingClientRect();
-  let x = e.clientX - globeRect.left + 15;
-  let y = e.clientY - globeRect.top + 15;
-
-  // Keep tooltip in bounds
-  if (x + 280 > globeRect.width) x = e.clientX - globeRect.left - 290;
-  if (y + 200 > globeRect.height) y = e.clientY - globeRect.top - 210;
-
-  tooltip.style.left = x + 'px';
-  tooltip.style.top = y + 'px';
-}
-
-// ── Vessel Detail Popup ──
-function handlePointClick(point) {
-  if (!point) return;
-
-  const detail = document.getElementById('vessel-detail');
-  document.getElementById('detail-name').textContent = point.name;
-
-  const grid = document.getElementById('detail-grid');
-  const fields = [
-    ['MMSI', point.mmsi],
-    ['Type', point.type],
-    ['Status', `<span style="color:${statusColor(point.status)}">${(point.status || '').toUpperCase()}</span>`],
-    ['Speed', `${point.speed} kn`],
-    ['Cargo', point.cargo],
-    ['Capacity', point.capacity_bbl ? fmt(point.capacity_bbl) + ' bbl' : '--'],
-    ['Destination', point.destination],
-    ['Position', `${point.lat.toFixed(3)}, ${point.lng.toFixed(3)}`],
-  ];
-
-  grid.innerHTML = fields.map(([label, val]) => `
-    <span class="detail-label">${label}</span>
-    <span class="detail-val">${val}</span>
-  `).join('');
-
-  detail.classList.add('active');
-
-  // Fly to vessel
-  globe.pointOfView({ lat: point.lat, lng: point.lng, altitude: 1.5 }, 1000);
-}
-
-function closeVesselDetail() {
-  document.getElementById('vessel-detail').classList.remove('active');
-}
-
-// ── Search ──
+// -- Search --
 const searchInput = document.getElementById('search-input');
 const searchClear = document.getElementById('search-clear');
 
@@ -2202,13 +2371,12 @@ searchInput.addEventListener('input', function() {
     return;
   }
 
-  // Re-render globe with search filter coloring
   renderGlobe();
 
   // If single match, fly to it
   const q = searchQuery.toLowerCase();
   const matches = allVessels.filter(v => {
-    const name = (v.name || v.vessel_name || '').toLowerCase();
+    const name = (v.name || '').toLowerCase();
     const mmsi = String(v.mmsi || '');
     const dest = (v.destination || '').toLowerCase();
     return name.includes(q) || mmsi.includes(q) || dest.includes(q);
@@ -2217,8 +2385,8 @@ searchInput.addEventListener('input', function() {
   if (matches.length === 1) {
     const v = matches[0];
     globe.pointOfView({
-      lat: v.lat || v.latitude || 0,
-      lng: v.lng || v.lon || v.longitude || 0,
+      lat: v.lat || 0,
+      lng: v.lng || 0,
       altitude: 1.5,
     }, 1000);
   }
@@ -2231,12 +2399,12 @@ searchClear.addEventListener('click', function() {
   renderGlobe();
 });
 
-// ── Auto-refresh ──
+// -- Auto-refresh every 5 minutes --
 setInterval(() => {
   loadAllData(selectedDate);
 }, 300000);
 
-// ── Initialize ──
+// -- Initialize --
 async function init() {
   try {
     await loadAllData();
@@ -2268,8 +2436,7 @@ async function init() {
   }, 1500);
 }
 
-// Use window.onload — fires after ALL resources (CSS, fonts, images) loaded
-// This guarantees layout is fully computed before globe init
+// Use window.onload -- fires after ALL resources (CSS, fonts, images) loaded
 window.addEventListener('load', init);
 </script>
 </body>
