@@ -1187,7 +1187,7 @@ async function fetchJSON(url) {
 
 async function loadAllData(date) {
   const qs = date ? `?date=${date}` : '';
-  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails] = await Promise.all([
+  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails, priceHist] = await Promise.all([
     fetchJSON(`/api/vessels${qs}`),
     fetchJSON('/api/ports'),
     fetchJSON(`/api/chokepoints${qs}`),
@@ -1197,6 +1197,7 @@ async function loadAllData(date) {
     fetchJSON(`/api/storage${qs}`),
     fetchJSON('/api/snapshot/dates'),
     fetchJSON('/api/vessels/trails'),
+    fetchJSON('/api/prices/history?limit=2'),
   ]);
 
   if (vessels) allVessels = Array.isArray(vessels) ? vessels : (vessels.data || vessels.vessels || []);
@@ -1210,17 +1211,21 @@ async function loadAllData(date) {
   }
   if (chokepoints) allChokepoints = Array.isArray(chokepoints) ? chokepoints : (chokepoints.data || chokepoints.chokepoints || []);
   if (prices) {
-    // API returns flat object like {brent_usd, wti_usd, nat_gas_usd, ...}
-    // Normalize into array format for rendering
     if (!Array.isArray(prices) && !prices.prices && !prices.data && prices.brent_usd != null) {
+      // Compute % change from prior day if we have history
+      const prev = (Array.isArray(priceHist) && priceHist.length > 1) ? priceHist[1] : null;
+      function pctChg(cur, field) {
+        if (!prev || !prev[field] || !cur) return 0;
+        return ((cur - prev[field]) / prev[field]) * 100;
+      }
       allPrices = { prices: [
-        { name: 'Brent Crude', price: prices.brent_usd, unit: 'bbl', currency: 'USD', change_pct: 0 },
-        { name: 'WTI Crude', price: prices.wti_usd, unit: 'bbl', currency: 'USD', change_pct: 0 },
-        { name: 'Natural Gas', price: prices.nat_gas_usd, unit: 'MMBtu', currency: 'USD', change_pct: 0 },
-        { name: 'US Avg Gasoline', price: prices.us_avg_gas_usd, unit: 'gal', currency: 'USD', change_pct: 0 },
-        { name: 'US CA Gasoline', price: prices.us_ca_gas_usd, unit: 'gal', currency: 'USD', change_pct: 0 },
-        { name: 'EU Avg Gasoline', price: prices.eu_avg_gas_eur, unit: 'L', currency: 'EUR', change_pct: 0 },
-        { name: 'Singapore Gas', price: prices.singapore_gas_usd, unit: 'L', currency: 'USD', change_pct: 0 },
+        { name: 'Brent Crude', price: prices.brent_usd, unit: 'bbl', currency: 'USD', change_pct: pctChg(prices.brent_usd, 'brent_usd') },
+        { name: 'WTI Crude', price: prices.wti_usd, unit: 'bbl', currency: 'USD', change_pct: pctChg(prices.wti_usd, 'wti_usd') },
+        { name: 'Natural Gas', price: prices.nat_gas_usd, unit: 'MMBtu', currency: 'USD', change_pct: pctChg(prices.nat_gas_usd, 'nat_gas_usd') },
+        { name: 'US Avg Gas', price: prices.us_avg_gas_usd, unit: 'gal', currency: 'USD', change_pct: pctChg(prices.us_avg_gas_usd, 'us_avg_gas_usd') },
+        { name: 'US CA Gas', price: prices.us_ca_gas_usd, unit: 'gal', currency: 'USD', change_pct: pctChg(prices.us_ca_gas_usd, 'us_ca_gas_usd') },
+        { name: 'EU Avg Gas', price: prices.eu_avg_gas_eur, unit: 'L', currency: 'EUR', change_pct: pctChg(prices.eu_avg_gas_eur, 'eu_avg_gas_eur') },
+        { name: 'Singapore Gas', price: prices.singapore_gas_usd, unit: 'L', currency: 'USD', change_pct: pctChg(prices.singapore_gas_usd, 'singapore_gas_usd') },
       ].filter(p => p.price != null) };
     } else {
       allPrices = prices;
@@ -1525,22 +1530,14 @@ function initGlobe() {
     .showAtmosphere(true)
     .atmosphereColor('#1a3a6a')
     .atmosphereAltitude(0.15)
-    .pointAltitude(0.01)
-    .pointRadius('size')
-    .pointColor('color')
-    .pointLabel(p => '')
-    .onPointHover(handlePointHover)
-    .onPointClick(handlePointClick)
-    .arcColor('arcColor')
-    .arcStroke(0.5)
-    .arcAltitude(0.15)
-    .arcDashLength(0.5)
-    .arcDashGap(0.2)
-    .arcDashAnimateTime(2000)
+    // Hide default points layer — we use htmlElements for tanker icons
+    .pointsData([])
+    // Arcs removed — replaced by paths
+    .arcsData([])
     .labelText('text')
     .labelColor(() => '#f5a623')
-    .labelSize(0.8)
-    .labelDotRadius(0.3)
+    .labelSize('labelSize')
+    .labelDotRadius('dotRadius')
     .labelAltitude(0.01)
     .labelResolution(2)
     .ringColor('color')
@@ -1553,6 +1550,8 @@ function initGlobe() {
     .pathDashGap('dashGap')
     .pathPointAlt(0.005)
     .pathTransitionDuration(0)
+    .htmlAltitude(0.01)
+    .htmlElement('el')
     .width(w)
     .height(h)
     (container);
@@ -1560,7 +1559,21 @@ function initGlobe() {
   // Set initial camera
   globe.pointOfView({ lat: 25, lng: 45, altitude: 2.5 });
 
-  // Handle resize — also fixes initial zero-dimension issue
+  // Track zoom level for icon/label scaling
+  let currentAlt = 2.5;
+  const scene = globe.scene();
+  const controls = globe.controls();
+  if (controls) {
+    controls.addEventListener('change', () => {
+      const pov = globe.pointOfView();
+      if (pov.altitude !== currentAlt) {
+        currentAlt = pov.altitude;
+        scaleElements(currentAlt);
+      }
+    });
+  }
+
+  // Handle resize
   const ro = new ResizeObserver(() => {
     if (globe && container.clientWidth && container.clientHeight) {
       globe.width(container.clientWidth).height(container.clientHeight);
@@ -1569,54 +1582,115 @@ function initGlobe() {
   ro.observe(container);
 }
 
+// Scale tanker icons and labels based on zoom altitude
+function scaleElements(alt) {
+  const scale = Math.max(0.4, Math.min(2.5, 2.0 / Math.sqrt(alt)));
+  document.querySelectorAll('.tanker-icon').forEach(el => {
+    el.style.transform = `scale(${scale})`;
+  });
+}
+
+// SVG tanker icon — returns an HTML element
+function createTankerIcon(color, heading, vessel) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'tanker-icon';
+  wrapper.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;transition:transform 0.3s;';
+  const rot = (heading || 0) - 90;
+  const name = vessel.name || 'Unknown';
+  wrapper.innerHTML = `
+    <svg width="20" height="12" viewBox="0 0 20 12" style="transform:rotate(${rot}deg);filter:drop-shadow(0 0 2px ${color})">
+      <path d="M2,6 L5,2 L17,2 L20,6 L17,10 L5,10 Z" fill="${color}" stroke="${color}" stroke-width="0.5" opacity="0.9"/>
+      <rect x="6" y="4" width="3" height="4" rx="0.5" fill="rgba(0,0,0,0.3)"/>
+      <rect x="10" y="4" width="3" height="4" rx="0.5" fill="rgba(0,0,0,0.3)"/>
+      <rect x="14" y="3.5" width="2.5" height="5" rx="0.5" fill="rgba(0,0,0,0.4)"/>
+    </svg>
+    <div style="font-size:7px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 3px #000,0 0 6px #000;font-family:var(--font-mono)">${name}</div>
+  `;
+
+  // Hover tooltip
+  wrapper.addEventListener('mouseenter', (e) => {
+    const tooltip = document.getElementById('globe-tooltip');
+    const v = vessel;
+    const cargo = v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : '--';
+    tooltip.innerHTML = `
+      <div class="tt-name">${name}</div>
+      <div class="tt-row"><span class="tt-label">MMSI</span><span class="tt-val">${v.mmsi || '--'}</span></div>
+      <div class="tt-row"><span class="tt-label">Status</span><span class="tt-val" style="color:${color}">${(v.status || '').toUpperCase()}</span></div>
+      <div class="tt-row"><span class="tt-label">Speed</span><span class="tt-val">${v.speed || 0} kn</span></div>
+      <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${v.vessel_class || '--'}</span></div>
+      <div class="tt-row"><span class="tt-label">Cargo</span><span class="tt-val">${cargo}</span></div>
+      <div class="tt-row"><span class="tt-label">Dest</span><span class="tt-val">${v.destination || '--'}</span></div>
+    `;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 15) + 'px';
+    tooltip.style.top = (e.clientY + 15) + 'px';
+  });
+  wrapper.addEventListener('mousemove', (e) => {
+    const tooltip = document.getElementById('globe-tooltip');
+    tooltip.style.left = (e.clientX + 15) + 'px';
+    tooltip.style.top = (e.clientY + 15) + 'px';
+  });
+  wrapper.addEventListener('mouseleave', () => {
+    document.getElementById('globe-tooltip').style.display = 'none';
+  });
+
+  // Click to fly + detail
+  wrapper.addEventListener('click', () => {
+    const v = vessel;
+    globe.pointOfView({ lat: v.lat, lng: v.lng, altitude: 1.2 }, 1000);
+    const detail = document.getElementById('vessel-detail');
+    document.getElementById('detail-name').textContent = name;
+    const cargo = v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : '--';
+    const grid = document.getElementById('detail-grid');
+    grid.innerHTML = [
+      ['MMSI', v.mmsi || '--'],
+      ['Type', v.vessel_class || '--'],
+      ['Status', `<span style="color:${color}">${(v.status || '').toUpperCase()}</span>`],
+      ['Speed', `${v.speed || 0} kn`],
+      ['Cargo', cargo],
+      ['Destination', v.destination || '--'],
+      ['Position', `${(v.lat||0).toFixed(3)}, ${(v.lng||0).toFixed(3)}`],
+    ].map(([l, val]) => `<span class="detail-label">${l}</span><span class="detail-val">${val}</span>`).join('');
+    detail.classList.add('active');
+  });
+
+  return wrapper;
+}
+
 function renderGlobe() {
   if (!globe) return;
 
-  // Points (vessels)
   const vessels = getFilteredVessels();
-  const pointsData = vessels.map(v => ({
-    lat: v.lat || v.latitude || 0,
-    lng: v.lng || v.lon || v.longitude || 0,
-    size: vesselSize(v.vessel_class || v.type || v.vessel_type || ''),
-    color: getVesselPointColor(v),
-    name: v.name || v.vessel_name || 'Unknown',
-    mmsi: v.mmsi || '--',
-    status: v.status || '--',
-    speed: v.speed || v.sog || 0,
-    cargo: v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : (v.cargo || v.cargo_type || '--'),
-    destination: v.destination || '--',
-    type: v.vessel_class || v.type || v.vessel_type || '--',
-    capacity_bbl: v.capacity_bbl || v.capacityBbl || v.cargo_est_bbl || 0,
-    _vessel: v,
-  }));
-  globe.pointsData(pointsData);
 
-  // Arcs (routes)
-  const arcsData = vessels
-    .filter(v => {
-      const dest = v.destination || v.dest_port;
-      return dest && PORT_COORDS[dest] && (v.lat || v.latitude);
-    })
-    .map(v => {
-      const dest = v.destination || v.dest_port;
-      const destCoord = PORT_COORDS[dest];
-      const color = statusColor(v.status);
-      return {
-        startLat: v.lat || v.latitude,
-        startLng: v.lng || v.lon || v.longitude,
-        endLat: destCoord.lat,
-        endLng: destCoord.lng,
-        arcColor: [color, color],
-      };
-    });
-  globe.arcsData(arcsData);
+  // HTML tanker icons
+  const htmlData = vessels.map(v => {
+    const status = (v.status || 'underway').toLowerCase();
+    const isOk = status === 'underway' || status === 'ballast';
+    const color = isOk ? '#00e676' : '#ff1744';
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const name = (v.name || '').toLowerCase();
+      const mmsi = String(v.mmsi || '');
+      const dest = (v.destination || '').toLowerCase();
+      if (!name.includes(q) && !mmsi.includes(q) && !dest.includes(q)) {
+        // dim non-matching vessels
+      }
+    }
+    return {
+      lat: v.lat || 0,
+      lng: v.lng || 0,
+      el: createTankerIcon(color, v.heading, v),
+    };
+  });
+  globe.htmlElementsData(htmlData);
 
-  // Labels (ports)
+  // Labels (ports + vessel names handled by tanker icons)
   const labelsData = allPorts.map(p => ({
     lat: p.lat,
     lng: p.lng || p.lon,
     text: p.name || p.port_name,
-    color: '#f5a623',
+    labelSize: 1.0,
+    dotRadius: 0.4,
   }));
   globe.labelsData(labelsData);
 
@@ -1629,34 +1703,35 @@ function renderGlobe() {
       if (status === 'closed') color = t => `rgba(255,23,68,${1 - t})`;
       else if (status === 'degraded') color = t => `rgba(245,166,35,${1 - t})`;
       else color = t => `rgba(0,230,118,${1 - t})`;
-      return {
-        lat: c.lat,
-        lng: c.lng || c.lon,
-        maxR: 3,
-        color: color,
-      };
+      return { lat: c.lat, lng: c.lng || c.lon, maxR: 3, color };
     });
   globe.ringsData(ringsData);
 
-  // Paths (vessel trails + future routes)
+  // Build vessel lookup for status colors
+  const vesselStatusMap = new Map();
+  for (const v of vessels) {
+    vesselStatusMap.set(v.mmsi, v.status || 'underway');
+  }
+
+  // Paths — status-colored, solid for history, dotted for future route
   const pathsData = [];
 
-  // Historical trails — solid thin blue lines showing where each ship has been
-  const trailMap = new Map();
+  // Historical trails — solid thin lines in vessel status color
   for (const t of allTrails) {
-    if (t.trail && t.trail.length > 1) trailMap.set(t.mmsi, t.trail);
-  }
-  for (const [mmsi, trail] of trailMap) {
+    if (!t.trail || t.trail.length < 2) continue;
+    const status = (vesselStatusMap.get(t.mmsi) || 'underway').toLowerCase();
+    const isOk = status === 'underway' || status === 'ballast';
+    const c = isOk ? 'rgba(0,230,118,0.5)' : 'rgba(255,23,68,0.5)';
     pathsData.push({
-      points: trail.map(p => ({ lat: p.lat, lng: p.lng })),
-      color: 'rgba(68,138,255,0.6)',
-      stroke: 0.4,
+      points: t.trail.map(p => ({ lat: p.lat, lng: p.lng })),
+      color: c,
+      stroke: 0.3,
       dashLength: 1,
       dashGap: 0,
     });
   }
 
-  // Future routes — dotted blue lines from current position to destination
+  // Future routes — dotted lines in vessel status color
   for (const v of vessels) {
     const dest = v.destination || v.dest_port;
     if (!dest || !PORT_COORDS[dest]) continue;
@@ -1664,16 +1739,23 @@ function renderGlobe() {
     const lng = v.lng || v.lon || v.longitude;
     if (!lat) continue;
     const dc = PORT_COORDS[dest];
+    const status = (v.status || 'underway').toLowerCase();
+    const isOk = status === 'underway' || status === 'ballast';
+    const c = isOk ? 'rgba(0,230,118,0.3)' : 'rgba(255,23,68,0.3)';
     pathsData.push({
       points: [{ lat, lng }, { lat: dc.lat, lng: dc.lng }],
-      color: 'rgba(68,138,255,0.35)',
-      stroke: 0.3,
-      dashLength: 0.3,
-      dashGap: 0.15,
+      color: c,
+      stroke: 0.2,
+      dashLength: 0.2,
+      dashGap: 0.1,
     });
   }
 
   globe.pathsData(pathsData);
+
+  // Scale icons to current zoom
+  const pov = globe.pointOfView();
+  if (pov) scaleElements(pov.altitude);
 }
 
 function getVesselPointColor(v) {
