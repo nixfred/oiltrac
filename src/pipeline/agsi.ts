@@ -15,8 +15,8 @@ export async function fetchAGSIStorage(): Promise<void> {
   }
 
   try {
-    const url = `https://agsi.gie.eu/api/data/eu?apikey=${key}`;
-    const res = await fetch(url);
+    const url = 'https://agsi.gie.eu/api/data/eu';
+    const res = await fetch(url, { headers: { 'x-key': key } });
 
     if (!res.ok) {
       log('ERROR', `AGSI API returned ${res.status}: ${res.statusText}`);
