@@ -1,0 +1,28 @@
+services:
+  oiltrac:
+    build: .
+    container_name: oiltrac
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oiltrac.rule=Host(`oil.nixfred.tech`)"
+      - "traefik.http.routers.oiltrac.entrypoints=websecure"
+      - "traefik.http.routers.oiltrac.tls=true"
+      - "traefik.http.routers.oiltrac.tls.certresolver=hostinger"
+      - "traefik.http.services.oiltrac.loadbalancer.server.port=3000"
+      - "homepage.group=Projects"
+      - "homepage.name=OILTRAC"
+      - "homepage.icon=mdi-tanker-truck"
+      - "homepage.href=https://oil.nixfred.tech"
+      - "homepage.description=Oil Tanker Intelligence"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    name: traefik
+    external: true
