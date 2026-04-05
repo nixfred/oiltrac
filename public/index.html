@@ -1096,7 +1096,10 @@ html, body {
         <button class="search-clear" id="search-clear">&times;</button>
       </div>
     </div>
-    <div class="header-right" id="header-clock">--</div>
+    <div class="header-right">
+      <span id="header-clock">--</span>
+      <a href="https://github.com/nixfred/oiltrac" target="_blank" rel="noopener" style="margin-left:12px;color:var(--dim);text-decoration:none;font-size:13px;border:1px solid var(--panel-border);padding:3px 10px;border-radius:4px;transition:all 0.2s" onmouseover="this.style.color='var(--amber)';this.style.borderColor='var(--amber)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--panel-border)'">GitHub</a>
+    </div>
   </header>
 
   <!-- ═══════════ ALERT BANNER ═══════════ -->
@@ -1121,7 +1124,6 @@ html, body {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Fleet Status</span>
-          <button class="export-btn" onclick="exportCSV('vessels')">CSV</button>
         </div>
         <div class="stats-grid" id="fleet-stats">
           <div class="stat-box">
@@ -1202,7 +1204,6 @@ html, body {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Energy Prices</span>
-          <button class="export-btn" onclick="exportCSV('prices')">CSV</button>
         </div>
         <div class="price-table" id="price-table">
           <span style="font-size:13px;color:var(--dim)">Loading...</span>
@@ -1800,7 +1801,7 @@ function initGlobe() {
   const h = container.clientHeight || wrap.clientHeight || Math.max(400, window.innerHeight - 300);
 
   globe = Globe()
-    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+    .globeImageUrl('https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x5400x2700.jpg')
     .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
     .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
     .showAtmosphere(true)
@@ -2227,17 +2228,6 @@ searchClear.addEventListener('click', function() {
   searchClear.classList.remove('visible');
   renderGlobe();
 });
-
-// ── CSV Export ──
-function exportCSV(type) {
-  const url = type === 'vessels' ? '/api/export/vessels.csv' : '/api/export/prices.csv';
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `oiltrac_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
 
 // ── Auto-refresh ──
 setInterval(() => {
