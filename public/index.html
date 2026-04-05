@@ -1089,6 +1089,7 @@ let allFleet = null;
 let allAlerts = [];
 let allStorage = [];
 let snapshotDates = [];
+let allTrails = [];
 let selectedDate = null;
 let searchQuery = '';
 
@@ -1186,7 +1187,7 @@ async function fetchJSON(url) {
 
 async function loadAllData(date) {
   const qs = date ? `?date=${date}` : '';
-  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates] = await Promise.all([
+  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails] = await Promise.all([
     fetchJSON(`/api/vessels${qs}`),
     fetchJSON('/api/ports'),
     fetchJSON(`/api/chokepoints${qs}`),
@@ -1195,12 +1196,17 @@ async function loadAllData(date) {
     fetchJSON('/api/alerts'),
     fetchJSON(`/api/storage${qs}`),
     fetchJSON('/api/snapshot/dates'),
+    fetchJSON('/api/vessels/trails'),
   ]);
 
   if (vessels) allVessels = Array.isArray(vessels) ? vessels : (vessels.data || vessels.vessels || []);
   if (ports) {
     allPorts = Array.isArray(ports) ? ports : (ports.data || ports.ports || []);
-    allPorts.forEach(p => { PORT_COORDS[p.name] = { lat: p.lat, lng: p.lng || p.lon }; });
+    allPorts.forEach(p => {
+      PORT_COORDS[p.name] = { lat: p.lat, lng: p.lng || p.lon };
+      PORT_COORDS[p.name.toUpperCase()] = { lat: p.lat, lng: p.lng || p.lon };
+      PORT_COORDS[p.name.toUpperCase().replace(/\s+/g, '_')] = { lat: p.lat, lng: p.lng || p.lon };
+    });
   }
   if (chokepoints) allChokepoints = Array.isArray(chokepoints) ? chokepoints : (chokepoints.data || chokepoints.chokepoints || []);
   if (prices) {
@@ -1227,6 +1233,7 @@ async function loadAllData(date) {
     snapshotDates = Array.isArray(dates) ? dates : (dates.data || dates.dates || []);
     setupTimeline();
   }
+  if (trails) allTrails = Array.isArray(trails) ? trails : [];
 
   renderAll();
   flashUpdated();
@@ -1540,6 +1547,12 @@ function initGlobe() {
     .ringMaxRadius('maxR')
     .ringPropagationSpeed(2)
     .ringRepeatPeriod(1500)
+    .pathColor('color')
+    .pathStroke('stroke')
+    .pathDashLength('dashLength')
+    .pathDashGap('dashGap')
+    .pathPointAlt(0.005)
+    .pathTransitionDuration(0)
     .width(w)
     .height(h)
     (container);
@@ -1624,6 +1637,43 @@ function renderGlobe() {
       };
     });
   globe.ringsData(ringsData);
+
+  // Paths (vessel trails + future routes)
+  const pathsData = [];
+
+  // Historical trails — solid thin blue lines showing where each ship has been
+  const trailMap = new Map();
+  for (const t of allTrails) {
+    if (t.trail && t.trail.length > 1) trailMap.set(t.mmsi, t.trail);
+  }
+  for (const [mmsi, trail] of trailMap) {
+    pathsData.push({
+      points: trail.map(p => ({ lat: p.lat, lng: p.lng })),
+      color: 'rgba(68,138,255,0.6)',
+      stroke: 0.4,
+      dashLength: 1,
+      dashGap: 0,
+    });
+  }
+
+  // Future routes — dotted blue lines from current position to destination
+  for (const v of vessels) {
+    const dest = v.destination || v.dest_port;
+    if (!dest || !PORT_COORDS[dest]) continue;
+    const lat = v.lat || v.latitude;
+    const lng = v.lng || v.lon || v.longitude;
+    if (!lat) continue;
+    const dc = PORT_COORDS[dest];
+    pathsData.push({
+      points: [{ lat, lng }, { lat: dc.lat, lng: dc.lng }],
+      color: 'rgba(68,138,255,0.35)',
+      stroke: 0.3,
+      dashLength: 0.3,
+      dashGap: 0.15,
+    });
+  }
+
+  globe.pathsData(pathsData);
 }
 
 function getVesselPointColor(v) {

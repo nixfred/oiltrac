@@ -14,6 +14,7 @@ import {
   getSnapshotDates,
   getAlerts,
   getRunwayEstimates,
+  getVesselTrails,
 } from './db';
 import { startScheduler } from './scheduler';
 
@@ -26,6 +27,10 @@ const app = new Hono();
 app.get('/api/vessels', (c) => {
   const date = c.req.query('date');
   return c.json(getVessels(date));
+});
+
+app.get('/api/vessels/trails', (c) => {
+  return c.json(getVesselTrails());
 });
 
 app.get('/api/vessels/:mmsi', (c) => {

@@ -748,6 +748,26 @@ export function getRunwayEstimates(): RunwayEstimate[] {
 }
 
 // ---------------------------------------------------------------------------
+// Vessel trails (historical positions across snapshot dates)
+// ---------------------------------------------------------------------------
+
+export function getVesselTrails(): { mmsi: string; trail: { lat: number; lng: number; date: string }[] }[] {
+  const rows = db.query(`
+    SELECT mmsi, lat, lng, snapshot_date
+    FROM vessels
+    ORDER BY mmsi, snapshot_date ASC
+  `).all() as { mmsi: string; lat: number; lng: number; snapshot_date: string }[];
+
+  const trailMap = new Map<string, { lat: number; lng: number; date: string }[]>();
+  for (const r of rows) {
+    if (!trailMap.has(r.mmsi)) trailMap.set(r.mmsi, []);
+    trailMap.get(r.mmsi)!.push({ lat: r.lat, lng: r.lng, date: r.snapshot_date });
+  }
+
+  return Array.from(trailMap.entries()).map(([mmsi, trail]) => ({ mmsi, trail }));
+}
+
+// ---------------------------------------------------------------------------
 // Default export
 // ---------------------------------------------------------------------------
 
