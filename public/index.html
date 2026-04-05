@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OILTRAC - Global Oil Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/three@0.164.1/build/three.min.js"></script>
+<script src="https://unpkg.com/globe.gl@2.35.2/dist/globe.gl.min.js"></script>
+<style>
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #050a0f;
+  --panel-bg: #0a1628;
+  --panel-border: #1a2a4a;
+  --text-primary: #e0e6ed;
+  --amber: #f5a623;
+  --green: #00e676;
+  --red: #ff1744;
+  --blue: #448aff;
+  --dim: #5a6a7a;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* ═══════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════ */
+#app {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto auto;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════ */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: linear-gradient(180deg, #0d1a2e 0%, var(--bg) 100%);
+  border-bottom: 1px solid var(--panel-border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(245, 166, 35, 0.3);
+}
+
+.logo-sub {
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.header-center {
+  flex: 1;
+  max-width: 400px;
+  min-width: 200px;
+}
+
+.search-wrap {
+  position: relative;
+}
+
+.search-wrap input {
+  width: 100%;
+  padding: 8px 36px 8px 14px;
+  background: rgba(10, 22, 40, 0.8);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-wrap input:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 8px rgba(245, 166, 35, 0.15);
+}
+
+.search-wrap input::placeholder {
+  color: var(--dim);
+}
+
+.search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 16px;
+  display: none;
+  line-height: 1;
+}
+
+.search-clear.visible { display: block; }
+.search-clear:hover { color: var(--text-primary); }
+
+.header-right {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   ALERT BANNER
+   ═══════════════════════════════════════════ */
+#alert-banner {
+  display: none;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(255, 23, 68, 0.12), rgba(245, 166, 35, 0.12), rgba(255, 23, 68, 0.12));
+  border-bottom: 1px solid rgba(255, 23, 68, 0.3);
+  padding: 8px 20px;
+  animation: alertPulse 2s ease-in-out infinite;
+}
+
+#alert-banner.active { display: block; }
+
+@keyframes alertPulse {
+  0%, 100% { background-color: rgba(255, 23, 68, 0.08); }
+  50% { background-color: rgba(255, 23, 68, 0.18); }
+}
+
+.alert-content {
+  display: flex;
+  gap: 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red);
+  white-space: nowrap;
+  animation: alertScroll 20s linear infinite;
+}
+
+@keyframes alertScroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* ═══════════════════════════════════════════
+   TICKER
+   ═══════════════════════════════════════════ */
+#ticker {
+  overflow: hidden;
+  background: rgba(10, 22, 40, 0.6);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 6px 0;
+  position: relative;
+}
+
+#ticker::before, #ticker::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+#ticker::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg), transparent);
+}
+
+#ticker::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg), transparent);
+}
+
+.ticker-track {
+  display: flex;
+  gap: 0;
+  white-space: nowrap;
+  animation: tickerScroll 40s linear infinite;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@keyframes tickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  padding: 0 12px;
+  color: var(--text-primary);
+}
+
+.ticker-sep {
+  color: var(--panel-border);
+  padding: 0 4px;
+}
+
+.ticker-up { color: var(--green); }
+.ticker-down { color: var(--red); }
+.ticker-warn { color: var(--amber); }
+.ticker-crit { color: var(--red); }
+
+/* ═══════════════════════════════════════════
+   MAIN CONTENT
+   ═══════════════════════════════════════════ */
+#main {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════
+   PANELS (LEFT & RIGHT)
+   ═══════════════════════════════════════════ */
+.panel {
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-right: 1px solid var(--panel-border);
+  max-height: calc(100vh - 220px);
+}
+
+.panel:last-child {
+  border-right: none;
+  border-left: 1px solid var(--panel-border);
+}
+
+.card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 14px;
+  position: relative;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.export-btn {
+  background: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  color: var(--dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* Fleet Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-box {
+  background: rgba(5, 10, 15, 0.6);
+  border: 1px solid rgba(26, 42, 74, 0.5);
+  border-radius: 4px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.stat-box.full-width {
+  grid-column: 1 / -1;
+}
+
+.stat-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.red { color: var(--red); }
+.stat-value.blue { color: var(--blue); }
+.stat-value.white { color: var(--text-primary); }
+
+.stat-value.pulse {
+  animation: pulseRed 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Vessel mini list */
+.vessel-mini-list {
+  margin-top: 10px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 8px;
+}
+
+.vessel-mini-list h4 {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.vessel-mini-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 11px;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.3);
+}
+
+.vessel-mini-item:last-child { border-bottom: none; }
+
+.vessel-mini-name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--red);
+}
+
+.vessel-mini-loc {
+  font-size: 10px;
+  color: var(--dim);
+  text-align: right;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chokepoint rows */
+.chokepoint-row {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.3);
+}
+
+.chokepoint-row:last-child { border-bottom: none; }
+
+.choke-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.choke-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
+
+.status-badge.open {
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(0, 230, 118, 0.3);
+}
+
+.status-badge.degraded {
+  background: rgba(245, 166, 35, 0.15);
+  color: var(--amber);
+  border: 1px solid rgba(245, 166, 35, 0.3);
+}
+
+.status-badge.closed {
+  background: rgba(255, 23, 68, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(255, 23, 68, 0.3);
+}
+
+.choke-bar-wrap {
+  height: 6px;
+  background: rgba(5, 10, 15, 0.8);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.choke-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.choke-bar.green { background: var(--green); }
+.choke-bar.amber { background: var(--amber); }
+.choke-bar.red { background: var(--red); }
+
+.choke-detail {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+/* ═══════════════════════════════════════════
+   GLOBE
+   ═══════════════════════════════════════════ */
+#globe-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  min-height: 400px;
+}
+
+#globe-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#globe-tooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  background: rgba(10, 22, 40, 0.95);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  z-index: 100;
+  max-width: 280px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+#globe-tooltip .tt-name {
+  font-weight: 700;
+  color: var(--amber);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+#globe-tooltip .tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+#globe-tooltip .tt-label { color: var(--dim); }
+#globe-tooltip .tt-val { color: var(--text-primary); font-weight: 600; }
+
+/* Vessel detail popup */
+#vessel-detail {
+  display: none;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  background: rgba(10, 22, 40, 0.95);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 16px;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+#vessel-detail.active { display: block; }
+
+#vessel-detail .detail-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+#vessel-detail .detail-close:hover { color: var(--text-primary); }
+
+#vessel-detail .detail-name {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--amber);
+  margin-bottom: 10px;
+  padding-right: 24px;
+}
+
+#vessel-detail .detail-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+
+#vessel-detail .detail-label {
+  font-family: var(--font-mono);
+  color: var(--dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+#vessel-detail .detail-val {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════
+   RIGHT PANEL — Prices
+   ═══════════════════════════════════════════ */
+.price-table {
+  width: 100%;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.3);
+  font-size: 12px;
+}
+
+.price-row:last-child { border-bottom: none; }
+
+.price-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  flex: 1;
+}
+
+.price-val {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  margin: 0 8px;
+  min-width: 70px;
+  text-align: right;
+}
+
+.price-change {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 60px;
+  text-align: right;
+}
+
+.price-change.up { color: var(--green); }
+.price-change.down { color: var(--red); }
+
+/* Storage rows */
+.storage-row {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.3);
+}
+
+.storage-row:last-child { border-bottom: none; }
+
+.storage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.storage-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.storage-days {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.storage-days.safe { color: var(--green); }
+.storage-days.warn { color: var(--amber); }
+.storage-days.critical { color: var(--red); }
+
+.storage-bar-wrap {
+  height: 5px;
+  background: rgba(5, 10, 15, 0.8);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.storage-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.storage-bar.green { background: var(--green); }
+.storage-bar.amber { background: var(--amber); }
+.storage-bar.red { background: var(--red); }
+
+.storage-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+/* ═══════════════════════════════════════════
+   TIMELINE SLIDER
+   ═══════════════════════════════════════════ */
+#timeline {
+  padding: 10px 20px;
+  background: rgba(10, 22, 40, 0.4);
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.timeline-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.timeline-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber);
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+#timeline-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--panel-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+#timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--amber);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(245, 166, 35, 0.4);
+}
+
+#timeline-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--amber);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(245, 166, 35, 0.4);
+}
+
+/* ═══════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════ */
+#footer {
+  padding: 8px 20px;
+  background: var(--bg);
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.footer-credits {
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
+.footer-updated {
+  font-family: var(--font-mono);
+  transition: color 0.3s;
+}
+
+.footer-updated.flash {
+  color: var(--amber);
+}
+
+/* ═══════════════════════════════════════════
+   LOADING OVERLAY
+   ═══════════════════════════════════════════ */
+#loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.5s;
+}
+
+#loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-logo {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 4px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 30px rgba(245, 166, 35, 0.4);
+}
+
+.loading-bar-wrap {
+  width: 200px;
+  height: 3px;
+  background: var(--panel-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.loading-bar {
+  width: 40%;
+  height: 100%;
+  background: var(--amber);
+  border-radius: 2px;
+  animation: loadingSlide 1.2s ease-in-out infinite;
+}
+
+@keyframes loadingSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.loading-text {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 2px;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 1200px) {
+  #main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 60vh auto;
+  }
+
+  .panel {
+    max-height: none;
+    border-right: none !important;
+    border-left: none !important;
+    border-bottom: 1px solid var(--panel-border);
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .panel .card {
+    flex: 1;
+    min-width: 250px;
+  }
+
+  #globe-wrap {
+    min-height: 60vh;
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  #main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 60vh auto;
+  }
+
+  .panel {
+    flex-direction: column;
+  }
+
+  .panel .card {
+    min-width: unset;
+  }
+
+  #header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .header-left {
+    justify-content: center;
+  }
+
+  .header-center {
+    max-width: none;
+  }
+
+  .header-right {
+    text-align: center;
+    font-size: 11px;
+  }
+
+  #timeline {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+  <div class="loading-logo">OILTRAC</div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <div class="loading-text">INITIALIZING SYSTEMS</div>
+</div>
+
+<div id="app">
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header id="header">
+    <div class="header-left">
+      <span class="logo">&#x1F6E2;&#xFE0F; OILTRAC</span>
+      <span class="logo-sub">Global Oil Intelligence</span>
+    </div>
+    <div class="header-center">
+      <div class="search-wrap">
+        <input type="text" id="search-input" placeholder="Search vessels, ports, routes..." autocomplete="off">
+        <button class="search-clear" id="search-clear">&times;</button>
+      </div>
+    </div>
+    <div class="header-right" id="header-clock">--</div>
+  </header>
+
+  <!-- ═══════════ ALERT BANNER ═══════════ -->
+  <div id="alert-banner">
+    <div class="alert-content" id="alert-content"></div>
+  </div>
+
+  <!-- ═══════════ TICKER ═══════════ -->
+  <div id="ticker">
+    <div class="ticker-track" id="ticker-track">
+      <span class="ticker-item" style="color:var(--dim);">Loading market data...</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ MAIN CONTENT ═══════════ -->
+  <div id="main">
+
+    <!-- LEFT PANEL -->
+    <div class="panel" id="left-panel">
+
+      <!-- Fleet Summary -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Fleet Status</span>
+          <button class="export-btn" onclick="exportCSV('vessels')">CSV</button>
+        </div>
+        <div class="stats-grid" id="fleet-stats">
+          <div class="stat-box">
+            <div class="stat-label">Total Vessels</div>
+            <div class="stat-value white" id="stat-total">--</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Underway</div>
+            <div class="stat-value green" id="stat-underway">--</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">At Anchor</div>
+            <div class="stat-value amber" id="stat-anchor">--</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Stranded</div>
+            <div class="stat-value red" id="stat-stranded">--</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Ballast</div>
+            <div class="stat-value blue" id="stat-ballast">--</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Dark / AIS Off</div>
+            <div class="stat-value red pulse" id="stat-dark">--</div>
+          </div>
+          <div class="stat-box full-width">
+            <div class="stat-label">Total BBL in Transit</div>
+            <div class="stat-value amber" id="stat-bbl">--</div>
+          </div>
+        </div>
+        <div class="vessel-mini-list" id="flagged-vessels">
+          <h4>Flagged Vessels</h4>
+          <div id="flagged-vessel-list"><span style="font-size:11px;color:var(--dim)">Loading...</span></div>
+        </div>
+      </div>
+
+      <!-- Chokepoints -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Chokepoints</span>
+        </div>
+        <div id="chokepoint-list">
+          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GLOBE -->
+    <div id="globe-wrap">
+      <div id="globe-container"></div>
+      <div id="globe-tooltip"></div>
+      <div id="vessel-detail">
+        <button class="detail-close" onclick="closeVesselDetail()">&times;</button>
+        <div class="detail-name" id="detail-name">--</div>
+        <div class="detail-grid" id="detail-grid"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel" id="right-panel">
+
+      <!-- Energy Prices -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Energy Prices</span>
+          <button class="export-btn" onclick="exportCSV('prices')">CSV</button>
+        </div>
+        <div class="price-table" id="price-table">
+          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+        </div>
+      </div>
+
+      <!-- Storage & Supply -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Storage & Supply</span>
+        </div>
+        <div id="storage-list">
+          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TIMELINE ═══════════ -->
+  <div id="timeline">
+    <span class="timeline-label">Timeline</span>
+    <span class="timeline-date" id="timeline-date">LIVE</span>
+    <input type="range" id="timeline-slider" min="0" max="0" value="0">
+    <button class="export-btn" id="timeline-live-btn" onclick="goLive()" style="display:none;">LIVE</button>
+  </div>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <footer id="footer">
+    <span class="footer-credits">Data: AIS &bull; EIA &bull; ICE &bull; OPEC &bull; MarineTraffic</span>
+    <span class="footer-updated" id="footer-updated">Last updated: --</span>
+  </footer>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  OILTRAC — Global Oil Intelligence Dashboard
+//  Single-file frontend with Globe.gl
+// ═══════════════════════════════════════════════════════
+
+// ── State ──
+let globe = null;
+let allVessels = [];
+let allPorts = [];
+let allChokepoints = [];
+let allPrices = null;
+let allFleet = null;
+let allAlerts = [];
+let allStorage = [];
+let snapshotDates = [];
+let selectedDate = null;
+let searchQuery = '';
+
+// Port coordinates for arc destinations
+const PORT_COORDS = {};
+
+// ── Utilities ──
+function fmt(n) {
+  if (n == null) return '--';
+  return Number(n).toLocaleString('en-US');
+}
+
+function fmtMoney(n, prefix) {
+  if (n == null) return '--';
+  return (prefix || '$') + Number(n).toFixed(2);
+}
+
+function fmtDate(d) {
+  if (!d) return '--';
+  const dt = new Date(d);
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const mm = months[dt.getUTCMonth()];
+  const yy = dt.getUTCFullYear();
+  const hh = String(dt.getUTCHours()).padStart(2, '0');
+  const mi = String(dt.getUTCMinutes()).padStart(2, '0');
+  const ss = String(dt.getUTCSeconds()).padStart(2, '0');
+  return `${dd} ${mm} ${yy} ${hh}:${mi}:${ss} UTC`;
+}
+
+function statusColor(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'underway') return '#00e676';
+  if (s === 'anchor' || s === 'at anchor' || s === 'at_anchor') return '#f5a623';
+  if (s === 'stranded') return '#ff1744';
+  if (s === 'ballast') return '#448aff';
+  if (s === 'dark' || s === 'ais_off' || s === 'ais off') return '#888888';
+  return '#e0e6ed';
+}
+
+function vesselSize(type) {
+  const t = (type || '').toLowerCase();
+  if (t.includes('vlcc')) return 0.8;
+  if (t.includes('suezmax')) return 0.6;
+  if (t.includes('aframax')) return 0.5;
+  if (t.includes('lng')) return 0.4;
+  if (t.includes('product')) return 0.3;
+  return 0.4;
+}
+
+function chokeStatusClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'open' || s === 'normal') return 'open';
+  if (s === 'degraded') return 'degraded';
+  if (s === 'closed') return 'closed';
+  return 'open';
+}
+
+function chokeBarClass(pct) {
+  if (pct >= 80) return 'green';
+  if (pct >= 50) return 'amber';
+  return 'red';
+}
+
+function storageStatusClass(days) {
+  if (days > 30) return 'safe';
+  if (days >= 15) return 'warn';
+  return 'critical';
+}
+
+function storageBarClass(pct) {
+  if (pct >= 60) return 'green';
+  if (pct >= 30) return 'amber';
+  return 'red';
+}
+
+// ── Clock ──
+function updateClock() {
+  document.getElementById('header-clock').textContent = fmtDate(new Date());
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Data Fetching ──
+async function fetchJSON(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.warn(`Fetch failed: ${url}`, e);
+    return null;
+  }
+}
+
+async function loadAllData(date) {
+  const qs = date ? `?date=${date}` : '';
+  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates] = await Promise.all([
+    fetchJSON(`/api/vessels${qs}`),
+    fetchJSON('/api/ports'),
+    fetchJSON(`/api/chokepoints${qs}`),
+    fetchJSON('/api/prices/latest'),
+    fetchJSON(`/api/fleet/summary${qs}`),
+    fetchJSON('/api/alerts'),
+    fetchJSON(`/api/storage${qs}`),
+    fetchJSON('/api/snapshot/dates'),
+  ]);
+
+  if (vessels) allVessels = Array.isArray(vessels) ? vessels : (vessels.data || vessels.vessels || []);
+  if (ports) {
+    allPorts = Array.isArray(ports) ? ports : (ports.data || ports.ports || []);
+    allPorts.forEach(p => { PORT_COORDS[p.name] = { lat: p.lat, lng: p.lng || p.lon }; });
+  }
+  if (chokepoints) allChokepoints = Array.isArray(chokepoints) ? chokepoints : (chokepoints.data || chokepoints.chokepoints || []);
+  if (prices) allPrices = prices;
+  if (fleet) allFleet = fleet;
+  if (alerts) allAlerts = Array.isArray(alerts) ? alerts : (alerts.data || alerts.alerts || []);
+  if (storage) allStorage = Array.isArray(storage) ? storage : (storage.data || storage.regions || []);
+  if (dates) {
+    snapshotDates = Array.isArray(dates) ? dates : (dates.data || dates.dates || []);
+    setupTimeline();
+  }
+
+  renderAll();
+  flashUpdated();
+}
+
+function flashUpdated() {
+  const el = document.getElementById('footer-updated');
+  el.textContent = 'Last updated: ' + fmtDate(new Date());
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 2000);
+}
+
+// ── Render All ──
+function renderAll() {
+  renderAlerts();
+  renderTicker();
+  renderFleetStats();
+  renderFlaggedVessels();
+  renderChokepoints();
+  renderPrices();
+  renderStorage();
+  renderGlobe();
+}
+
+// ── Alerts ──
+function renderAlerts() {
+  const banner = document.getElementById('alert-banner');
+  const content = document.getElementById('alert-content');
+
+  if (!allAlerts || allAlerts.length === 0) {
+    banner.classList.remove('active');
+    return;
+  }
+
+  banner.classList.add('active');
+  content.innerHTML = allAlerts.map(a => {
+    const msg = a.message || a.text || a.description || JSON.stringify(a);
+    return `<span>\u26A0\uFE0F ALERT: ${msg}</span>`;
+  }).join('');
+
+  // Adjust scroll duration based on content
+  const totalWidth = content.scrollWidth;
+  const duration = Math.max(15, totalWidth / 40);
+  content.style.animationDuration = duration + 's';
+}
+
+// ── Ticker ──
+function renderTicker() {
+  const track = document.getElementById('ticker-track');
+  const items = [];
+
+  // Prices
+  if (allPrices) {
+    const priceList = allPrices.prices || allPrices.data || allPrices;
+    if (Array.isArray(priceList)) {
+      priceList.forEach(p => {
+        const name = (p.name || p.commodity || '').toUpperCase();
+        const val = fmtMoney(p.price || p.value, p.currency === 'EUR' ? '\u20AC' : '$');
+        const chg = p.change_pct || p.changePct || 0;
+        const arrow = chg >= 0 ? '\u25B2' : '\u25BC';
+        const cls = chg >= 0 ? 'ticker-up' : 'ticker-down';
+        items.push(`<span class="ticker-item">${name} <span class="${cls}">${val} ${arrow}${Math.abs(chg).toFixed(1)}%</span></span>`);
+      });
+    }
+  }
+
+  // Fleet summary
+  if (allFleet) {
+    const f = allFleet;
+    items.push(`<span class="ticker-item">FLEET: <strong>${f.total_vessels || f.totalVessels || '--'}</strong> vessels</span>`);
+    const bbl = f.total_bbl_in_transit || f.totalBblInTransit || f.bbl_in_transit || 0;
+    if (bbl) items.push(`<span class="ticker-item">IN TRANSIT: <strong>${(bbl / 1e6).toFixed(1)}M</strong> bbl</span>`);
+    const dark = f.dark || f.ais_off || 0;
+    if (dark > 0) items.push(`<span class="ticker-item ticker-crit">DARK: <strong>${dark}</strong> vessels</span>`);
+  }
+
+  // Chokepoints
+  if (allChokepoints.length) {
+    allChokepoints.forEach(c => {
+      const name = (c.name || '').toUpperCase();
+      const pct = c.pct_normal || c.pctNormal || c.throughput_pct || 100;
+      const cls = pct < 50 ? 'ticker-crit' : pct < 80 ? 'ticker-warn' : '';
+      const icon = pct < 50 ? ' \uD83D\uDD34' : pct < 80 ? ' \u26A0\uFE0F' : '';
+      items.push(`<span class="ticker-item ${cls}">${name}: ${pct}%${icon}</span>`);
+    });
+  }
+
+  if (items.length === 0) {
+    items.push('<span class="ticker-item" style="color:var(--dim)">Awaiting market data...</span>');
+  }
+
+  // Duplicate for seamless scroll
+  const html = items.join('<span class="ticker-sep">\u2502</span>');
+  track.innerHTML = html + '<span class="ticker-sep">\u2502</span>' + html;
+}
+
+// ── Fleet Stats ──
+function renderFleetStats() {
+  if (!allFleet) return;
+  const f = allFleet;
+  document.getElementById('stat-total').textContent = fmt(f.total_vessels || f.totalVessels || 0);
+  document.getElementById('stat-underway').textContent = fmt(f.underway || 0);
+  document.getElementById('stat-anchor').textContent = fmt(f.at_anchor || f.atAnchor || f.anchor || 0);
+  document.getElementById('stat-stranded').textContent = fmt(f.stranded || 0);
+  document.getElementById('stat-ballast').textContent = fmt(f.ballast || 0);
+  document.getElementById('stat-dark').textContent = fmt(f.dark || f.ais_off || 0);
+
+  const bbl = f.total_bbl_in_transit || f.totalBblInTransit || f.bbl_in_transit || 0;
+  document.getElementById('stat-bbl').textContent = fmt(bbl);
+}
+
+// ── Flagged Vessels ──
+function renderFlaggedVessels() {
+  const container = document.getElementById('flagged-vessel-list');
+  const flagged = allVessels.filter(v => {
+    const s = (v.status || '').toLowerCase();
+    return s === 'stranded' || s === 'dark' || s === 'ais_off' || s === 'ais off';
+  });
+
+  if (flagged.length === 0) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No flagged vessels</span>';
+    return;
+  }
+
+  container.innerHTML = flagged.slice(0, 8).map(v => `
+    <div class="vessel-mini-item">
+      <span class="vessel-mini-name">${v.name || v.vessel_name || 'UNKNOWN'}</span>
+      <span class="vessel-mini-loc">${v.destination || v.last_port || v.location || '--'}</span>
+    </div>
+  `).join('');
+}
+
+// ── Chokepoints ──
+function renderChokepoints() {
+  const container = document.getElementById('chokepoint-list');
+  if (!allChokepoints.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No chokepoint data</span>';
+    return;
+  }
+
+  container.innerHTML = allChokepoints.map(c => {
+    const name = c.name || 'Unknown';
+    const status = c.status || 'open';
+    const pct = c.pct_normal || c.pctNormal || c.throughput_pct || 100;
+    const current = c.vessels_per_day || c.current_flow || 0;
+    const normal = c.normal_flow || c.capacity || 0;
+    const cls = chokeStatusClass(status);
+    const barCls = chokeBarClass(pct);
+
+    return `
+      <div class="chokepoint-row">
+        <div class="choke-header">
+          <span class="choke-name">${name}</span>
+          <span class="status-badge ${cls}">${status.toUpperCase()}</span>
+        </div>
+        <div class="choke-bar-wrap">
+          <div class="choke-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div>
+        </div>
+        <div class="choke-detail">${current}${normal ? '/' + normal : ''} vessels/day &middot; ${pct}% normal</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Prices ──
+function renderPrices() {
+  const container = document.getElementById('price-table');
+  if (!allPrices) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No price data</span>';
+    return;
+  }
+
+  const priceList = allPrices.prices || allPrices.data || (Array.isArray(allPrices) ? allPrices : []);
+  if (!Array.isArray(priceList) || priceList.length === 0) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No price data</span>';
+    return;
+  }
+
+  container.innerHTML = priceList.map(p => {
+    const name = p.name || p.commodity || 'Unknown';
+    const prefix = p.currency === 'EUR' ? '\u20AC' : '$';
+    const val = fmtMoney(p.price || p.value, prefix);
+    const unit = p.unit ? `/${p.unit}` : '';
+    const chg = p.change_pct || p.changePct || 0;
+    const arrow = chg >= 0 ? '\u25B2' : '\u25BC';
+    const cls = chg >= 0 ? 'up' : 'down';
+    return `
+      <div class="price-row">
+        <span class="price-name">${name}</span>
+        <span class="price-val">${val}${unit}</span>
+        <span class="price-change ${cls}">${arrow} ${Math.abs(chg).toFixed(1)}%</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Storage ──
+function renderStorage() {
+  const container = document.getElementById('storage-list');
+  if (!allStorage.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No storage data</span>';
+    return;
+  }
+
+  container.innerHTML = allStorage.map(s => {
+    const name = s.region || s.name || 'Unknown';
+    const amount = s.storage_bbl || s.storageBbl || s.amount || 0;
+    const days = s.days_of_supply || s.daysOfSupply || s.runway_days || 0;
+    const pct = s.pct_capacity || s.pctCapacity || s.capacity_pct || 0;
+    const statusCls = storageStatusClass(days);
+    const barCls = storageBarClass(pct);
+    const amountStr = amount >= 1e9 ? (amount / 1e9).toFixed(1) + 'B bbl' :
+                      amount >= 1e6 ? (amount / 1e6).toFixed(0) + 'M bbl' :
+                      fmt(amount) + ' bbl';
+
+    return `
+      <div class="storage-row">
+        <div class="storage-header">
+          <span class="storage-name">${name}</span>
+          <span class="storage-days ${statusCls}">${days}d supply</span>
+        </div>
+        <div class="storage-bar-wrap">
+          <div class="storage-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div>
+        </div>
+        <div class="storage-meta">
+          <span>${amountStr}</span>
+          <span>${pct}% capacity</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Timeline ──
+function setupTimeline() {
+  const slider = document.getElementById('timeline-slider');
+  if (!snapshotDates.length) {
+    slider.max = 0;
+    slider.value = 0;
+    return;
+  }
+  slider.max = snapshotDates.length; // index 0 = first date, max index = LIVE
+  slider.value = snapshotDates.length; // default to LIVE
+}
+
+document.getElementById('timeline-slider').addEventListener('input', function() {
+  const idx = parseInt(this.value);
+  const liveBtn = document.getElementById('timeline-live-btn');
+  const dateEl = document.getElementById('timeline-date');
+
+  if (idx >= snapshotDates.length) {
+    // Live mode
+    selectedDate = null;
+    dateEl.textContent = 'LIVE';
+    dateEl.style.color = 'var(--green)';
+    liveBtn.style.display = 'none';
+  } else {
+    selectedDate = snapshotDates[idx];
+    dateEl.textContent = selectedDate;
+    dateEl.style.color = 'var(--amber)';
+    liveBtn.style.display = 'block';
+  }
+
+  loadAllData(selectedDate);
+});
+
+function goLive() {
+  const slider = document.getElementById('timeline-slider');
+  slider.value = snapshotDates.length;
+  selectedDate = null;
+  document.getElementById('timeline-date').textContent = 'LIVE';
+  document.getElementById('timeline-date').style.color = 'var(--green)';
+  document.getElementById('timeline-live-btn').style.display = 'none';
+  loadAllData();
+}
+
+// ── Globe ──
+function initGlobe() {
+  const container = document.getElementById('globe-container');
+
+  globe = Globe()
+    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+    .showAtmosphere(true)
+    .atmosphereColor('#1a3a6a')
+    .atmosphereAltitude(0.15)
+    .pointAltitude(0.01)
+    .pointRadius('size')
+    .pointColor('color')
+    .pointLabel(p => '')
+    .onPointHover(handlePointHover)
+    .onPointClick(handlePointClick)
+    .arcColor('arcColor')
+    .arcStroke(0.5)
+    .arcAltitude(0.15)
+    .arcDashLength(0.5)
+    .arcDashGap(0.2)
+    .arcDashAnimateTime(2000)
+    .labelText('text')
+    .labelColor(() => '#f5a623')
+    .labelSize(0.8)
+    .labelDotRadius(0.3)
+    .labelAltitude(0.01)
+    .labelResolution(2)
+    .ringsColor('color')
+    .ringMaxRadius('maxR')
+    .ringPropagationSpeed(2)
+    .ringRepeatPeriod(1500)
+    .width(container.clientWidth)
+    .height(container.clientHeight)
+    (container);
+
+  // Set initial camera
+  globe.pointOfView({ lat: 25, lng: 45, altitude: 2.5 });
+
+  // Handle resize
+  const ro = new ResizeObserver(() => {
+    if (globe) {
+      globe.width(container.clientWidth).height(container.clientHeight);
+    }
+  });
+  ro.observe(container);
+}
+
+function renderGlobe() {
+  if (!globe) return;
+
+  // Points (vessels)
+  const vessels = getFilteredVessels();
+  const pointsData = vessels.map(v => ({
+    lat: v.lat || v.latitude || 0,
+    lng: v.lng || v.lon || v.longitude || 0,
+    size: vesselSize(v.type || v.vessel_type || ''),
+    color: getVesselPointColor(v),
+    name: v.name || v.vessel_name || 'Unknown',
+    mmsi: v.mmsi || '--',
+    status: v.status || '--',
+    speed: v.speed || v.sog || 0,
+    cargo: v.cargo || v.cargo_type || '--',
+    destination: v.destination || '--',
+    type: v.type || v.vessel_type || '--',
+    capacity_bbl: v.capacity_bbl || v.capacityBbl || 0,
+    _vessel: v,
+  }));
+  globe.pointsData(pointsData);
+
+  // Arcs (routes)
+  const arcsData = vessels
+    .filter(v => {
+      const dest = v.destination || v.dest_port;
+      return dest && PORT_COORDS[dest] && (v.lat || v.latitude);
+    })
+    .map(v => {
+      const dest = v.destination || v.dest_port;
+      const destCoord = PORT_COORDS[dest];
+      const color = statusColor(v.status);
+      return {
+        startLat: v.lat || v.latitude,
+        startLng: v.lng || v.lon || v.longitude,
+        endLat: destCoord.lat,
+        endLng: destCoord.lng,
+        arcColor: [color, color],
+      };
+    });
+  globe.arcsData(arcsData);
+
+  // Labels (ports)
+  const labelsData = allPorts.map(p => ({
+    lat: p.lat,
+    lng: p.lng || p.lon,
+    text: p.name || p.port_name,
+    color: '#f5a623',
+  }));
+  globe.labelsData(labelsData);
+
+  // Rings (chokepoints)
+  const ringsData = allChokepoints
+    .filter(c => c.lat && (c.lng || c.lon))
+    .map(c => {
+      const status = (c.status || 'open').toLowerCase();
+      let color;
+      if (status === 'closed') color = t => `rgba(255,23,68,${1 - t})`;
+      else if (status === 'degraded') color = t => `rgba(245,166,35,${1 - t})`;
+      else color = t => `rgba(0,230,118,${1 - t})`;
+      return {
+        lat: c.lat,
+        lng: c.lng || c.lon,
+        maxR: 3,
+        color: color,
+      };
+    });
+  globe.ringsData(ringsData);
+}
+
+function getVesselPointColor(v) {
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    const name = (v.name || v.vessel_name || '').toLowerCase();
+    const mmsi = String(v.mmsi || '');
+    const dest = (v.destination || '').toLowerCase();
+    const matches = name.includes(q) || mmsi.includes(q) || dest.includes(q);
+    if (!matches) return 'rgba(90,106,122,0.3)';
+  }
+  return statusColor(v.status);
+}
+
+function getFilteredVessels() {
+  return allVessels;
+}
+
+// ── Tooltip ──
+function handlePointHover(point, prevPoint) {
+  const tooltip = document.getElementById('globe-tooltip');
+  if (!point) {
+    tooltip.style.display = 'none';
+    return;
+  }
+
+  tooltip.innerHTML = `
+    <div class="tt-name">${point.name}</div>
+    <div class="tt-row"><span class="tt-label">MMSI</span><span class="tt-val">${point.mmsi}</span></div>
+    <div class="tt-row"><span class="tt-label">Status</span><span class="tt-val" style="color:${statusColor(point.status)}">${(point.status || '').toUpperCase()}</span></div>
+    <div class="tt-row"><span class="tt-label">Speed</span><span class="tt-val">${point.speed} kn</span></div>
+    <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${point.type}</span></div>
+    <div class="tt-row"><span class="tt-label">Cargo</span><span class="tt-val">${point.cargo}</span></div>
+    <div class="tt-row"><span class="tt-label">Dest</span><span class="tt-val">${point.destination}</span></div>
+  `;
+  tooltip.style.display = 'block';
+
+  // Follow mouse
+  document.addEventListener('mousemove', moveTooltip);
+}
+
+function moveTooltip(e) {
+  const tooltip = document.getElementById('globe-tooltip');
+  if (tooltip.style.display === 'none') {
+    document.removeEventListener('mousemove', moveTooltip);
+    return;
+  }
+  const globeRect = document.getElementById('globe-wrap').getBoundingClientRect();
+  let x = e.clientX - globeRect.left + 15;
+  let y = e.clientY - globeRect.top + 15;
+
+  // Keep tooltip in bounds
+  if (x + 280 > globeRect.width) x = e.clientX - globeRect.left - 290;
+  if (y + 200 > globeRect.height) y = e.clientY - globeRect.top - 210;
+
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+
+// ── Vessel Detail Popup ──
+function handlePointClick(point) {
+  if (!point) return;
+
+  const detail = document.getElementById('vessel-detail');
+  document.getElementById('detail-name').textContent = point.name;
+
+  const grid = document.getElementById('detail-grid');
+  const fields = [
+    ['MMSI', point.mmsi],
+    ['Type', point.type],
+    ['Status', `<span style="color:${statusColor(point.status)}">${(point.status || '').toUpperCase()}</span>`],
+    ['Speed', `${point.speed} kn`],
+    ['Cargo', point.cargo],
+    ['Capacity', point.capacity_bbl ? fmt(point.capacity_bbl) + ' bbl' : '--'],
+    ['Destination', point.destination],
+    ['Position', `${point.lat.toFixed(3)}, ${point.lng.toFixed(3)}`],
+  ];
+
+  grid.innerHTML = fields.map(([label, val]) => `
+    <span class="detail-label">${label}</span>
+    <span class="detail-val">${val}</span>
+  `).join('');
+
+  detail.classList.add('active');
+
+  // Fly to vessel
+  globe.pointOfView({ lat: point.lat, lng: point.lng, altitude: 1.5 }, 1000);
+}
+
+function closeVesselDetail() {
+  document.getElementById('vessel-detail').classList.remove('active');
+}
+
+// ── Search ──
+const searchInput = document.getElementById('search-input');
+const searchClear = document.getElementById('search-clear');
+
+searchInput.addEventListener('input', function() {
+  searchQuery = this.value.trim();
+  searchClear.classList.toggle('visible', searchQuery.length > 0);
+
+  if (!searchQuery) {
+    renderGlobe();
+    return;
+  }
+
+  // Re-render globe with search filter coloring
+  renderGlobe();
+
+  // If single match, fly to it
+  const q = searchQuery.toLowerCase();
+  const matches = allVessels.filter(v => {
+    const name = (v.name || v.vessel_name || '').toLowerCase();
+    const mmsi = String(v.mmsi || '');
+    const dest = (v.destination || '').toLowerCase();
+    return name.includes(q) || mmsi.includes(q) || dest.includes(q);
+  });
+
+  if (matches.length === 1) {
+    const v = matches[0];
+    globe.pointOfView({
+      lat: v.lat || v.latitude || 0,
+      lng: v.lng || v.lon || v.longitude || 0,
+      altitude: 1.5,
+    }, 1000);
+  }
+});
+
+searchClear.addEventListener('click', function() {
+  searchInput.value = '';
+  searchQuery = '';
+  searchClear.classList.remove('visible');
+  renderGlobe();
+});
+
+// ── CSV Export ──
+function exportCSV(type) {
+  const url = type === 'vessels' ? '/api/export/vessels.csv' : '/api/export/prices.csv';
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `oiltrac_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── Auto-refresh ──
+setInterval(() => {
+  loadAllData(selectedDate);
+}, 300000);
+
+// ── Initialize ──
+async function init() {
+  initGlobe();
+  await loadAllData();
+
+  // Remove loading overlay
+  setTimeout(() => {
+    document.getElementById('loading-overlay').classList.add('hidden');
+  }, 800);
+}
+
+// Wait for DOM and Globe.gl
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

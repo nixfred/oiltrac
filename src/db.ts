@@ -1,0 +1,754 @@
+import { Database } from 'bun:sqlite';
+import type {
+  Vessel,
+  Port,
+  PortSnapshot,
+  Chokepoint,
+  PriceRecord,
+  StorageLevel,
+  FleetSummary,
+  Alert,
+  RunwayEstimate,
+} from './types';
+import { log } from './types';
+
+// ---------------------------------------------------------------------------
+// Database initialisation
+// ---------------------------------------------------------------------------
+
+const DB_PATH = process.env.DB_PATH || './data/oiltrac.db';
+const db = new Database(DB_PATH);
+db.exec('PRAGMA journal_mode=WAL');
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Schema creation
+// ---------------------------------------------------------------------------
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS vessels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mmsi TEXT,
+    name TEXT,
+    vessel_class TEXT,
+    flag TEXT,
+    lat REAL,
+    lng REAL,
+    speed REAL,
+    heading REAL,
+    draught REAL,
+    max_draught REAL,
+    destination TEXT,
+    eta TEXT,
+    status TEXT,
+    cargo_est_bbl INTEGER,
+    ais_dark INTEGER DEFAULT 0,
+    snapshot_date TEXT,
+    fetched_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS ports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE,
+    name TEXT,
+    country TEXT,
+    lat REAL,
+    lng REAL,
+    region TEXT,
+    capacity_bpd INTEGER,
+    storage_capacity_bbl INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS port_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    port_code TEXT,
+    snapshot_date TEXT,
+    ships_inbound INTEGER,
+    barrels_inbound INTEGER,
+    next_arrival_eta TEXT,
+    storage_pct REAL,
+    fetched_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS chokepoints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    lat REAL,
+    lng REAL,
+    baseline_daily_vessels INTEGER,
+    current_daily_vessels INTEGER,
+    pct_of_normal REAL,
+    status TEXT,
+    snapshot_date TEXT,
+    updated_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS prices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_date TEXT UNIQUE,
+    brent_usd REAL,
+    wti_usd REAL,
+    nat_gas_usd REAL,
+    us_avg_gas_usd REAL,
+    us_ca_gas_usd REAL,
+    eu_avg_gas_eur REAL,
+    singapore_gas_usd REAL,
+    updated_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS storage_levels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    region TEXT,
+    snapshot_date TEXT,
+    crude_storage_bbl INTEGER,
+    days_of_supply REAL,
+    pct_capacity REAL,
+    source TEXT,
+    updated_at TEXT
+  );
+`);
+
+log('INFO', 'Database schema initialised');
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function snapshotDates(): string[] {
+  const t = today();
+  const dates: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(t);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+// ---------------------------------------------------------------------------
+// Seed data
+// ---------------------------------------------------------------------------
+
+function seedPorts(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM ports').get() as { c: number };
+  if (count.c > 0) return;
+
+  const ports = [
+    ['RAS_TANURA', 'Ras Tanura', 'Saudi Arabia', 26.68, 50.17, 'MIDDLE_EAST', 6500000, 50000000],
+    ['FUJAIRAH', 'Fujairah', 'UAE', 25.12, 56.33, 'MIDDLE_EAST', 2000000, 42000000],
+    ['JEBEL_ALI', 'Jebel Ali', 'UAE', 25.01, 55.06, 'MIDDLE_EAST', 1500000, 20000000],
+    ['SINGAPORE', 'Singapore', 'Singapore', 1.26, 103.84, 'ASIA', 3000000, 65000000],
+    ['ROTTERDAM', 'Rotterdam', 'Netherlands', 51.95, 4.05, 'EU', 2500000, 45000000],
+    ['HOUSTON', 'Houston', 'USA', 29.73, -95.02, 'USA', 4500000, 80000000],
+    ['LONG_BEACH', 'Long Beach', 'USA', 33.75, -118.19, 'USA', 1800000, 35000000],
+    ['NINGBO', 'Ningbo', 'China', 29.87, 121.88, 'ASIA', 2800000, 55000000],
+    ['YOKOHAMA', 'Yokohama', 'Japan', 35.44, 139.64, 'ASIA', 1200000, 30000000],
+    ['SALDANHA', 'Saldanha Bay', 'South Africa', -33.01, 17.93, 'EU', 500000, 15000000],
+    ['DURBAN', 'Durban', 'South Africa', -29.87, 31.03, 'EU', 400000, 12000000],
+    ['CEYHAN', 'Ceyhan', 'Turkey', 36.88, 35.95, 'EU', 1600000, 25000000],
+  ];
+
+  const stmt = db.query(
+    'INSERT INTO ports (code, name, country, lat, lng, region, capacity_bpd, storage_capacity_bbl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+  for (const p of ports) {
+    stmt.run(...p);
+  }
+  log('INFO', `Seeded ${ports.length} ports`);
+}
+
+function seedVessels(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM vessels').get() as { c: number };
+  if (count.c > 0) return;
+
+  const dates = snapshotDates();
+
+  // Class capacities in barrels (approximate DWT conversion)
+  const classBbl: Record<string, number> = {
+    VLCC: 2000000,
+    Suezmax: 1000000,
+    Aframax: 600000,
+    LNG: 400000,
+    Product: 300000,
+  };
+
+  // Max draughts by class (metres)
+  const classMaxDraught: Record<string, number> = {
+    VLCC: 22.0,
+    Suezmax: 17.0,
+    Aframax: 15.0,
+    LNG: 12.5,
+    Product: 11.0,
+  };
+
+  interface VesselDef {
+    name: string;
+    mmsi: string;
+    cls: string;
+    flag: string;
+    lat: number;
+    lng: number;
+    speed: number;
+    heading: number;
+    status: string;
+    draughtPct: number;
+    dest: string;
+    eta: string;
+    aisDark: number;
+  }
+
+  const vessels: VesselDef[] = [
+    // 15 underway
+    { name: 'FRONT ALTA', mmsi: '311000101', cls: 'VLCC', flag: 'MH', lat: 25.80, lng: 54.50, speed: 12.3, heading: 135, status: 'underway', draughtPct: 0.92, dest: 'SINGAPORE', eta: '2026-04-12', aisDark: 0 },
+    { name: 'EAGLE VANCOUVER', mmsi: '311000102', cls: 'Suezmax', flag: 'MH', lat: 3.20, lng: 100.50, speed: 11.8, heading: 90, status: 'underway', draughtPct: 0.88, dest: 'NINGBO', eta: '2026-04-10', aisDark: 0 },
+    { name: 'OLYMPIC LION', mmsi: '241000201', cls: 'VLCC', flag: 'GR', lat: 12.50, lng: 44.00, speed: 13.1, heading: 200, status: 'underway', draughtPct: 0.91, dest: 'ROTTERDAM', eta: '2026-04-18', aisDark: 0 },
+    { name: 'PACIFIC VOYAGER', mmsi: '538000301', cls: 'Aframax', flag: 'MH', lat: 28.50, lng: -88.50, speed: 10.5, heading: 320, status: 'underway', draughtPct: 0.87, dest: 'HOUSTON', eta: '2026-04-07', aisDark: 0 },
+    { name: 'MINERVA HELEN', mmsi: '241000202', cls: 'Suezmax', flag: 'GR', lat: 35.50, lng: 25.00, speed: 14.2, heading: 270, status: 'underway', draughtPct: 0.90, dest: 'CEYHAN', eta: '2026-04-08', aisDark: 0 },
+    { name: 'DUBAI HARMONY', mmsi: '470000101', cls: 'VLCC', flag: 'AE', lat: 5.00, lng: 75.00, speed: 12.7, heading: 110, status: 'underway', draughtPct: 0.93, dest: 'YOKOHAMA', eta: '2026-04-15', aisDark: 0 },
+    { name: 'MARAN POSEIDON', mmsi: '241000203', cls: 'VLCC', flag: 'GR', lat: 30.00, lng: 33.00, speed: 11.5, heading: 340, status: 'underway', draughtPct: 0.89, dest: 'ROTTERDAM', eta: '2026-04-14', aisDark: 0 },
+    { name: 'SCF PRIMORYE', mmsi: '273000101', cls: 'Suezmax', flag: 'RU', lat: 1.80, lng: 104.00, speed: 10.2, heading: 45, status: 'underway', draughtPct: 0.86, dest: 'NINGBO', eta: '2026-04-09', aisDark: 0 },
+    { name: 'NAVE ANDROMEDA', mmsi: '538000302', cls: 'Aframax', flag: 'MH', lat: 50.00, lng: 1.00, speed: 12.0, heading: 180, status: 'underway', draughtPct: 0.85, dest: 'ROTTERDAM', eta: '2026-04-06', aisDark: 0 },
+    { name: 'ATLANTIC PROGRESS', mmsi: '311000103', cls: 'LNG', flag: 'MH', lat: 27.00, lng: -90.00, speed: 14.5, heading: 0, status: 'underway', draughtPct: 0.88, dest: 'LONG_BEACH', eta: '2026-04-11', aisDark: 0 },
+    { name: 'CRIMSON MAJESTY', mmsi: '636000101', cls: 'VLCC', flag: 'LR', lat: -5.00, lng: 40.00, speed: 13.0, heading: 210, status: 'underway', draughtPct: 0.94, dest: 'SALDANHA', eta: '2026-04-13', aisDark: 0 },
+    { name: 'NORDIC CROSS', mmsi: '220000101', cls: 'Suezmax', flag: 'DK', lat: 55.00, lng: 5.00, speed: 11.0, heading: 190, status: 'underway', draughtPct: 0.87, dest: 'ROTTERDAM', eta: '2026-04-06', aisDark: 0 },
+    { name: 'ELANDRA EVEREST', mmsi: '538000303', cls: 'Aframax', flag: 'MH', lat: 22.00, lng: 115.00, speed: 10.8, heading: 60, status: 'underway', draughtPct: 0.89, dest: 'NINGBO', eta: '2026-04-08', aisDark: 0 },
+    { name: 'STEALTH FALCON', mmsi: '636000102', cls: 'Product', flag: 'LR', lat: 32.00, lng: -65.00, speed: 13.5, heading: 250, status: 'underway', draughtPct: 0.90, dest: 'HOUSTON', eta: '2026-04-09', aisDark: 0 },
+    { name: 'AL DAFNA', mmsi: '466000101', cls: 'LNG', flag: 'QA', lat: 26.00, lng: 52.00, speed: 14.0, heading: 100, status: 'underway', draughtPct: 0.86, dest: 'YOKOHAMA', eta: '2026-04-16', aisDark: 0 },
+
+    // 5 anchor
+    { name: 'HARCOURT', mmsi: '311000104', cls: 'VLCC', flag: 'MH', lat: 1.20, lng: 103.90, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.91, dest: 'SINGAPORE', eta: '2026-04-06', aisDark: 0 },
+    { name: 'BW LIONESS', mmsi: '311000105', cls: 'Product', flag: 'MH', lat: 25.15, lng: 56.40, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.88, dest: 'FUJAIRAH', eta: '2026-04-06', aisDark: 0 },
+    { name: 'CELSIUS RIGA', mmsi: '538000304', cls: 'Aframax', flag: 'MH', lat: 29.70, lng: -94.90, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.87, dest: 'HOUSTON', eta: '2026-04-06', aisDark: 0 },
+    { name: 'TORM HELLERUP', mmsi: '220000102', cls: 'Suezmax', flag: 'DK', lat: 52.00, lng: 4.10, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.90, dest: 'ROTTERDAM', eta: '2026-04-06', aisDark: 0 },
+    { name: 'FPMC C RANGER', mmsi: '416000101', cls: 'VLCC', flag: 'TW', lat: 29.90, lng: 121.90, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.93, dest: 'NINGBO', eta: '2026-04-06', aisDark: 0 },
+
+    // 3 stranded (near chokepoints, speed 0-1)
+    { name: 'ADVANTAGE SPRING', mmsi: '636000103', cls: 'VLCC', flag: 'LR', lat: 26.60, lng: 56.30, speed: 0.5, heading: 90, status: 'stranded', draughtPct: 0.92, dest: 'SINGAPORE', eta: '2026-04-20', aisDark: 0 },
+    { name: 'RIDGEBURY JANE', mmsi: '538000305', cls: 'Suezmax', flag: 'MH', lat: 12.55, lng: 43.35, speed: 0.8, heading: 180, status: 'stranded', draughtPct: 0.89, dest: 'ROTTERDAM', eta: '2026-04-22', aisDark: 0 },
+    { name: 'NEW WISDOM', mmsi: '477000101', cls: 'Aframax', flag: 'HK', lat: 30.48, lng: 32.35, speed: 0.3, heading: 350, status: 'stranded', draughtPct: 0.86, dest: 'CEYHAN', eta: '2026-04-18', aisDark: 0 },
+
+    // 3 ballast (speed 11-14, low draught)
+    { name: 'YANGTZE HARMONY', mmsi: '413000101', cls: 'VLCC', flag: 'CN', lat: 15.00, lng: 60.00, speed: 13.5, heading: 310, status: 'ballast', draughtPct: 0.35, dest: 'RAS_TANURA', eta: '2026-04-10', aisDark: 0 },
+    { name: 'OCEAN GRACE', mmsi: '538000306', cls: 'Suezmax', flag: 'MH', lat: -25.00, lng: 25.00, speed: 12.0, heading: 30, status: 'ballast', draughtPct: 0.32, dest: 'DURBAN', eta: '2026-04-08', aisDark: 0 },
+    { name: 'STENA SUPREME', mmsi: '266000101', cls: 'Aframax', flag: 'SE', lat: 48.00, lng: -8.00, speed: 11.5, heading: 170, status: 'ballast', draughtPct: 0.38, dest: 'SALDANHA', eta: '2026-04-14', aisDark: 0 },
+
+    // 2 dark (ais_dark = 1)
+    { name: 'NISSOS SCHINOUSSA', mmsi: '241000204', cls: 'VLCC', flag: 'GR', lat: 26.00, lng: 55.00, speed: 8.0, heading: 150, status: 'dark', draughtPct: 0.91, dest: 'SINGAPORE', eta: '2026-04-14', aisDark: 1 },
+    { name: 'GRAN COUVA', mmsi: '375000101', cls: 'LNG', flag: 'TT', lat: 10.00, lng: -62.00, speed: 6.5, heading: 0, status: 'dark', draughtPct: 0.85, dest: 'HOUSTON', eta: '2026-04-10', aisDark: 1 },
+
+    // 2 remaining
+    { name: 'KRITI BASTION', mmsi: '241000205', cls: 'LNG', flag: 'GR', lat: 36.00, lng: 24.00, speed: 12.8, heading: 90, status: 'underway', draughtPct: 0.87, dest: 'CEYHAN', eta: '2026-04-07', aisDark: 0 },
+    { name: 'SIENNA', mmsi: '636000104', cls: 'Product', flag: 'LR', lat: 33.80, lng: -118.10, speed: 0.0, heading: 0, status: 'anchor', draughtPct: 0.86, dest: 'LONG_BEACH', eta: '2026-04-06', aisDark: 0 },
+  ];
+
+  const stmt = db.query(
+    `INSERT INTO vessels (mmsi, name, vessel_class, flag, lat, lng, speed, heading, draught, max_draught, destination, eta, status, cargo_est_bbl, ais_dark, snapshot_date, fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  for (const v of vessels) {
+    const maxD = classMaxDraught[v.cls];
+    const draught = Math.round(maxD * v.draughtPct * 100) / 100;
+    const cargo = Math.round(v.draughtPct * classBbl[v.cls]);
+
+    for (let di = 0; di < dates.length; di++) {
+      const date = dates[di];
+      // Shift position for historical dates to simulate movement
+      const latShift = di * (Math.random() * 0.5 - 0.25);
+      const lngShift = di * (Math.random() * 0.5 - 0.25);
+      const lat = Math.round((v.lat + latShift) * 10000) / 10000;
+      const lng = Math.round((v.lng + lngShift) * 10000) / 10000;
+
+      stmt.run(
+        v.mmsi,
+        v.name,
+        v.cls,
+        v.flag,
+        lat,
+        lng,
+        v.speed,
+        v.heading,
+        draught,
+        maxD,
+        v.dest,
+        v.eta,
+        v.status,
+        cargo,
+        v.aisDark,
+        date,
+        now()
+      );
+    }
+  }
+  log('INFO', `Seeded ${vessels.length} vessels x ${dates.length} dates`);
+}
+
+function seedPortSnapshots(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM port_snapshots').get() as { c: number };
+  if (count.c > 0) return;
+
+  const dates = snapshotDates();
+  const ports = db.query('SELECT code FROM ports').all() as { code: string }[];
+
+  const stmt = db.query(
+    `INSERT INTO port_snapshots (port_code, snapshot_date, ships_inbound, barrels_inbound, next_arrival_eta, storage_pct, fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  // Deterministic seed based on port code hash
+  function simpleHash(s: string): number {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  for (const port of ports) {
+    const base = simpleHash(port.code);
+    for (let di = 0; di < dates.length; di++) {
+      const ships = 2 + ((base + di * 3) % 7); // 2-8
+      const barrels = ships * (120000 + ((base + di) % 5) * 40000);
+      const storagePct = 55 + ((base + di * 7) % 31); // 55-85
+      const etaDay = new Date(dates[di]);
+      etaDay.setDate(etaDay.getDate() + 1 + (di % 3));
+      stmt.run(
+        port.code,
+        dates[di],
+        ships,
+        barrels,
+        etaDay.toISOString().slice(0, 10),
+        storagePct,
+        now()
+      );
+    }
+  }
+  log('INFO', `Seeded port snapshots for ${ports.length} ports x ${dates.length} dates`);
+}
+
+function seedChokepoints(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM chokepoints').get() as { c: number };
+  if (count.c > 0) return;
+
+  const dates = snapshotDates();
+
+  const chokes = [
+    { name: 'Strait of Hormuz', lat: 26.56, lng: 56.25, baseline: 40, current: 24, pct: 60.0, status: 'degraded' },
+    { name: 'Strait of Malacca', lat: 2.50, lng: 101.80, baseline: 25, current: 24, pct: 95.0, status: 'open' },
+    { name: 'Suez Canal', lat: 30.50, lng: 32.30, baseline: 20, current: 18, pct: 88.0, status: 'open' },
+    { name: 'Bab el-Mandeb', lat: 12.60, lng: 43.30, baseline: 18, current: 8, pct: 45.0, status: 'degraded' },
+    { name: 'Panama Canal', lat: 9.00, lng: -79.50, baseline: 14, current: 8, pct: 55.0, status: 'degraded' },
+  ];
+
+  const stmt = db.query(
+    `INSERT INTO chokepoints (name, lat, lng, baseline_daily_vessels, current_daily_vessels, pct_of_normal, status, snapshot_date, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  for (const c of chokes) {
+    for (let di = 0; di < dates.length; di++) {
+      // Slight variance for historical dates
+      const currentAdj = c.current + (di === 0 ? 0 : Math.floor(Math.random() * 3) - 1);
+      const pctAdj = Math.round((currentAdj / c.baseline) * 100 * 10) / 10;
+      stmt.run(
+        c.name,
+        c.lat,
+        c.lng,
+        c.baseline,
+        currentAdj,
+        pctAdj,
+        c.status,
+        dates[di],
+        now()
+      );
+    }
+  }
+  log('INFO', `Seeded ${chokes.length} chokepoints x ${dates.length} dates`);
+}
+
+function seedPrices(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM prices').get() as { c: number };
+  if (count.c > 0) return;
+
+  const dates = snapshotDates();
+  const brent = [115.40, 114.80, 116.20, 113.50, 112.90];
+  const wti = [111.20, 110.60, 112.80, 109.40, 108.70];
+  const natGas = [4.12, 4.05, 3.98, 3.85, 3.82];
+  const usGas = [4.29, 4.25, 4.22, 4.18, 4.15];
+  const usCaGas = [5.95, 5.88, 5.82, 5.99, 6.05];
+  const euGas = [2.95, 2.88, 2.92, 2.85, 2.80];
+  const sgGas = [2.52, 2.48, 2.55, 2.45, 2.42];
+
+  const stmt = db.query(
+    `INSERT INTO prices (snapshot_date, brent_usd, wti_usd, nat_gas_usd, us_avg_gas_usd, us_ca_gas_usd, eu_avg_gas_eur, singapore_gas_usd, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  for (let i = 0; i < dates.length; i++) {
+    stmt.run(dates[i], brent[i], wti[i], natGas[i], usGas[i], usCaGas[i], euGas[i], sgGas[i], now());
+  }
+  log('INFO', `Seeded prices for ${dates.length} dates`);
+}
+
+function seedStorageLevels(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM storage_levels').get() as { c: number };
+  if (count.c > 0) return;
+
+  const dates = snapshotDates();
+
+  const regions = [
+    { region: 'USA', bbl: 430000000, days: 25.0, pct: 58.0, source: 'EIA' },
+    { region: 'EU', bbl: 350000000, days: 22.0, pct: 52.0, source: 'IEA' },
+    { region: 'ASIA', bbl: 280000000, days: 18.0, pct: 48.0, source: 'JODI' },
+    { region: 'MIDDLE_EAST', bbl: 180000000, days: 35.0, pct: 72.0, source: 'OPEC' },
+  ];
+
+  const stmt = db.query(
+    `INSERT INTO storage_levels (region, snapshot_date, crude_storage_bbl, days_of_supply, pct_capacity, source, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  for (const r of regions) {
+    for (let di = 0; di < dates.length; di++) {
+      // Slight variation per day
+      const bblAdj = r.bbl + (di - 2) * 2000000;
+      const daysAdj = Math.round((r.days + (di - 2) * 0.3) * 10) / 10;
+      const pctAdj = Math.round((r.pct + (di - 2) * 0.4) * 10) / 10;
+      stmt.run(r.region, dates[di], bblAdj, daysAdj, pctAdj, r.source, now());
+    }
+  }
+  log('INFO', `Seeded storage levels for ${regions.length} regions x ${dates.length} dates`);
+}
+
+function seedAll(): void {
+  seedPorts();
+  seedVessels();
+  seedPortSnapshots();
+  seedChokepoints();
+  seedPrices();
+  seedStorageLevels();
+}
+
+seedAll();
+
+// ---------------------------------------------------------------------------
+// Query functions
+// ---------------------------------------------------------------------------
+
+export function getVessels(date?: string): Vessel[] {
+  const d = date || today();
+  return db.query('SELECT * FROM vessels WHERE snapshot_date = ?').all(d) as Vessel[];
+}
+
+export function getVesselByMmsi(mmsi: string): Vessel | null {
+  return (db.query('SELECT * FROM vessels WHERE mmsi = ? ORDER BY snapshot_date DESC LIMIT 1').get(mmsi) as Vessel) || null;
+}
+
+export function upsertVessel(v: Partial<Vessel>): void {
+  const existing = db.query(
+    'SELECT id FROM vessels WHERE mmsi = ? AND snapshot_date = ?'
+  ).get(v.mmsi, v.snapshot_date) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE vessels SET name=?, vessel_class=?, flag=?, lat=?, lng=?, speed=?, heading=?, draught=?, max_draught=?, destination=?, eta=?, status=?, cargo_est_bbl=?, ais_dark=?, fetched_at=? WHERE id=?`,
+      v.name ?? null, v.vessel_class ?? null, v.flag ?? null, v.lat ?? null, v.lng ?? null,
+      v.speed ?? null, v.heading ?? null, v.draught ?? null, v.max_draught ?? null,
+      v.destination ?? null, v.eta ?? null, v.status ?? null, v.cargo_est_bbl ?? null,
+      v.ais_dark ?? 0, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO vessels (mmsi, name, vessel_class, flag, lat, lng, speed, heading, draught, max_draught, destination, eta, status, cargo_est_bbl, ais_dark, snapshot_date, fetched_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      v.mmsi ?? null, v.name ?? null, v.vessel_class ?? null, v.flag ?? null,
+      v.lat ?? null, v.lng ?? null, v.speed ?? null, v.heading ?? null,
+      v.draught ?? null, v.max_draught ?? null, v.destination ?? null, v.eta ?? null,
+      v.status ?? null, v.cargo_est_bbl ?? null, v.ais_dark ?? 0,
+      v.snapshot_date ?? today(), now()
+    );
+  }
+}
+
+export function getPorts(): Port[] {
+  return db.query('SELECT * FROM ports ORDER BY code').all() as Port[];
+}
+
+export function getPortSnapshots(date?: string): PortSnapshot[] {
+  const d = date || today();
+  return db.query('SELECT * FROM port_snapshots WHERE snapshot_date = ?').all(d) as PortSnapshot[];
+}
+
+export function upsertPortSnapshot(ps: Partial<PortSnapshot>): void {
+  const existing = db.query(
+    'SELECT id FROM port_snapshots WHERE port_code = ? AND snapshot_date = ?'
+  ).get(ps.port_code, ps.snapshot_date) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE port_snapshots SET ships_inbound=?, barrels_inbound=?, next_arrival_eta=?, storage_pct=?, fetched_at=? WHERE id=?`,
+      ps.ships_inbound ?? null, ps.barrels_inbound ?? null, ps.next_arrival_eta ?? null,
+      ps.storage_pct ?? null, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO port_snapshots (port_code, snapshot_date, ships_inbound, barrels_inbound, next_arrival_eta, storage_pct, fetched_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ps.port_code ?? null, ps.snapshot_date ?? today(), ps.ships_inbound ?? null,
+      ps.barrels_inbound ?? null, ps.next_arrival_eta ?? null, ps.storage_pct ?? null, now()
+    );
+  }
+}
+
+export function getChokepoints(date?: string): Chokepoint[] {
+  const d = date || today();
+  return db.query('SELECT * FROM chokepoints WHERE snapshot_date = ?').all(d) as Chokepoint[];
+}
+
+export function upsertChokepoint(c: Partial<Chokepoint>): void {
+  const existing = db.query(
+    'SELECT id FROM chokepoints WHERE name = ? AND snapshot_date = ?'
+  ).get(c.name, c.snapshot_date) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE chokepoints SET lat=?, lng=?, baseline_daily_vessels=?, current_daily_vessels=?, pct_of_normal=?, status=?, updated_at=? WHERE id=?`,
+      c.lat ?? null, c.lng ?? null, c.baseline_daily_vessels ?? null,
+      c.current_daily_vessels ?? null, c.pct_of_normal ?? null, c.status ?? null, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO chokepoints (name, lat, lng, baseline_daily_vessels, current_daily_vessels, pct_of_normal, status, snapshot_date, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      c.name ?? null, c.lat ?? null, c.lng ?? null, c.baseline_daily_vessels ?? null,
+      c.current_daily_vessels ?? null, c.pct_of_normal ?? null, c.status ?? null,
+      c.snapshot_date ?? today(), now()
+    );
+  }
+}
+
+export function getLatestPrices(): PriceRecord | null {
+  return (db.query('SELECT * FROM prices ORDER BY snapshot_date DESC LIMIT 1').get() as PriceRecord) || null;
+}
+
+export function getPriceHistory(limit?: number): PriceRecord[] {
+  const l = limit || 30;
+  return db.query('SELECT * FROM prices ORDER BY snapshot_date DESC LIMIT ?').all(l) as PriceRecord[];
+}
+
+export function upsertPrices(p: Partial<PriceRecord>): void {
+  const existing = db.query(
+    'SELECT id FROM prices WHERE snapshot_date = ?'
+  ).get(p.snapshot_date) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE prices SET brent_usd=?, wti_usd=?, nat_gas_usd=?, us_avg_gas_usd=?, us_ca_gas_usd=?, eu_avg_gas_eur=?, singapore_gas_usd=?, updated_at=? WHERE id=?`,
+      p.brent_usd ?? null, p.wti_usd ?? null, p.nat_gas_usd ?? null,
+      p.us_avg_gas_usd ?? null, p.us_ca_gas_usd ?? null, p.eu_avg_gas_eur ?? null,
+      p.singapore_gas_usd ?? null, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO prices (snapshot_date, brent_usd, wti_usd, nat_gas_usd, us_avg_gas_usd, us_ca_gas_usd, eu_avg_gas_eur, singapore_gas_usd, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      p.snapshot_date ?? today(), p.brent_usd ?? null, p.wti_usd ?? null,
+      p.nat_gas_usd ?? null, p.us_avg_gas_usd ?? null, p.us_ca_gas_usd ?? null,
+      p.eu_avg_gas_eur ?? null, p.singapore_gas_usd ?? null, now()
+    );
+  }
+}
+
+export function getStorageLevels(date?: string): StorageLevel[] {
+  const d = date || today();
+  return db.query('SELECT * FROM storage_levels WHERE snapshot_date = ?').all(d) as StorageLevel[];
+}
+
+export function upsertStorageLevel(s: Partial<StorageLevel>): void {
+  const existing = db.query(
+    'SELECT id FROM storage_levels WHERE region = ? AND snapshot_date = ?'
+  ).get(s.region, s.snapshot_date) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE storage_levels SET crude_storage_bbl=?, days_of_supply=?, pct_capacity=?, source=?, updated_at=? WHERE id=?`,
+      s.crude_storage_bbl ?? null, s.days_of_supply ?? null, s.pct_capacity ?? null,
+      s.source ?? null, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO storage_levels (region, snapshot_date, crude_storage_bbl, days_of_supply, pct_capacity, source, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      s.region ?? null, s.snapshot_date ?? today(), s.crude_storage_bbl ?? null,
+      s.days_of_supply ?? null, s.pct_capacity ?? null, s.source ?? null, now()
+    );
+  }
+}
+
+export function getFleetSummary(date?: string): FleetSummary {
+  const d = date || today();
+  const vessels = db.query('SELECT status, cargo_est_bbl FROM vessels WHERE snapshot_date = ?').all(d) as {
+    status: string;
+    cargo_est_bbl: number;
+  }[];
+
+  const summary: FleetSummary = {
+    total: vessels.length,
+    underway: 0,
+    stranded: 0,
+    anchor: 0,
+    ballast: 0,
+    dark: 0,
+    totalBblInTransit: 0,
+  };
+
+  for (const v of vessels) {
+    switch (v.status) {
+      case 'underway':
+        summary.underway++;
+        summary.totalBblInTransit += v.cargo_est_bbl;
+        break;
+      case 'stranded':
+        summary.stranded++;
+        summary.totalBblInTransit += v.cargo_est_bbl;
+        break;
+      case 'anchor':
+        summary.anchor++;
+        break;
+      case 'ballast':
+        summary.ballast++;
+        break;
+      case 'dark':
+        summary.dark++;
+        summary.totalBblInTransit += v.cargo_est_bbl;
+        break;
+    }
+  }
+
+  return summary;
+}
+
+export function getSnapshotDates(): string[] {
+  const rows = db.query(
+    'SELECT DISTINCT snapshot_date FROM vessels ORDER BY snapshot_date DESC'
+  ).all() as { snapshot_date: string }[];
+  return rows.map((r) => r.snapshot_date);
+}
+
+export function getAlerts(): Alert[] {
+  const alerts: Alert[] = [];
+  let id = 1;
+  const ts = now();
+
+  // Chokepoint alerts — degraded or closed
+  const chokes = getChokepoints();
+  for (const c of chokes) {
+    if (c.status === 'degraded') {
+      alerts.push({
+        id: id++,
+        type: 'chokepoint',
+        severity: 'warning',
+        message: `${c.name} operating at ${c.pct_of_normal}% of normal capacity`,
+        created_at: ts,
+        active: 1,
+      });
+    } else if (c.status === 'closed') {
+      alerts.push({
+        id: id++,
+        type: 'chokepoint',
+        severity: 'critical',
+        message: `${c.name} is CLOSED — 0% throughput`,
+        created_at: ts,
+        active: 1,
+      });
+    }
+  }
+
+  // Dark vessel alerts
+  const darkVessels = db.query(
+    "SELECT name, mmsi FROM vessels WHERE ais_dark = 1 AND snapshot_date = ? GROUP BY mmsi"
+  ).all(today()) as { name: string; mmsi: string }[];
+  for (const v of darkVessels) {
+    alerts.push({
+      id: id++,
+      type: 'dark_vessel',
+      severity: 'warning',
+      message: `${v.name} (MMSI ${v.mmsi}) — AIS transponder dark`,
+      created_at: ts,
+      active: 1,
+    });
+  }
+
+  // Price alerts — Brent > $110
+  const prices = getLatestPrices();
+  if (prices && prices.brent_usd > 110) {
+    alerts.push({
+      id: id++,
+      type: 'price',
+      severity: 'critical',
+      message: `Brent crude at $${prices.brent_usd}/bbl — elevated above $110 threshold`,
+      created_at: ts,
+      active: 1,
+    });
+  }
+
+  return alerts;
+}
+
+export function getRunwayEstimates(): RunwayEstimate[] {
+  const d = today();
+
+  // Get storage levels for today
+  const storage = getStorageLevels(d);
+
+  // Get port snapshots for today, grouped by region
+  const portRows = db.query(`
+    SELECT p.region, SUM(ps.ships_inbound) as ships, SUM(ps.barrels_inbound) as barrels
+    FROM port_snapshots ps
+    JOIN ports p ON p.code = ps.port_code
+    WHERE ps.snapshot_date = ?
+    GROUP BY p.region
+  `).all(d) as { region: string; ships: number; barrels: number }[];
+
+  const inboundByRegion: Record<string, { ships: number; barrels: number }> = {};
+  for (const r of portRows) {
+    inboundByRegion[r.region] = { ships: r.ships, barrels: r.barrels };
+  }
+
+  const estimates: RunwayEstimate[] = [];
+
+  for (const s of storage) {
+    const inbound = inboundByRegion[s.region] || { ships: 0, barrels: 0 };
+    const daysVisible = s.days_of_supply;
+
+    let status: 'safe' | 'warn' | 'critical';
+    if (daysVisible >= 25) {
+      status = 'safe';
+    } else if (daysVisible >= 15) {
+      status = 'warn';
+    } else {
+      status = 'critical';
+    }
+
+    estimates.push({
+      region: s.region,
+      daysVisible,
+      bblInbound: inbound.barrels,
+      shipsInbound: inbound.ships,
+      status,
+    });
+  }
+
+  return estimates;
+}
+
+// ---------------------------------------------------------------------------
+// Default export
+// ---------------------------------------------------------------------------
+
+export default db;
