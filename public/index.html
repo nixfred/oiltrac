@@ -1919,27 +1919,30 @@ function renderGlobe() {
       el,
     };
   });
-  globe.htmlElementsData(htmlData);
-
-  // Labels (ports + refineries)
-  const labelsData = allPorts.map(p => ({
-    lat: p.lat,
-    lng: p.lng || p.lon,
-    text: p.name || p.port_name,
-    labelSize: 1.0,
-    dotRadius: 0.4,
-  }));
-  // Add refinery markers as labels
-  for (const r of allRefineries) {
-    labelsData.push({
-      lat: r.lat,
-      lng: r.lng,
-      text: '⛽ ' + r.name,
-      labelSize: 0.6,
-      dotRadius: 0.3,
-    });
+  // Add port markers as HTML elements
+  for (const p of allPorts) {
+    const el = document.createElement('div');
+    el.className = 'tanker-icon port-label';
+    el.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;';
+    el.innerHTML = `<div style="width:8px;height:8px;background:var(--amber);border-radius:50%;margin:0 auto;box-shadow:0 0 4px var(--amber)"></div>
+      <div style="font-size:10px;color:var(--amber);white-space:nowrap;margin-top:2px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono);font-weight:600">${p.name || p.port_name}</div>`;
+    htmlData.push({ lat: p.lat, lng: p.lng || p.lon, el });
   }
-  globe.labelsData(labelsData);
+
+  // Add refinery markers as HTML elements
+  for (const r of allRefineries) {
+    const el = document.createElement('div');
+    el.className = 'tanker-icon refinery-label';
+    el.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;';
+    const pct = r.utilization_pct || 0;
+    const color = pct >= 85 ? 'var(--green)' : pct >= 70 ? 'var(--amber)' : 'var(--red)';
+    el.innerHTML = `<div style="width:6px;height:6px;background:${color};border-radius:50%;margin:0 auto;box-shadow:0 0 3px ${color}"></div>
+      <div style="font-size:8px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono)">⛽ ${r.name}</div>`;
+    htmlData.push({ lat: r.lat, lng: r.lng, el });
+  }
+
+  globe.htmlElementsData(htmlData);
+  globe.labelsData([]);
 
   // Rings (chokepoints)
   const ringsData = allChokepoints
