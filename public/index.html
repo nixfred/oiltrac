@@ -1203,7 +1203,23 @@ async function loadAllData(date) {
     allPorts.forEach(p => { PORT_COORDS[p.name] = { lat: p.lat, lng: p.lng || p.lon }; });
   }
   if (chokepoints) allChokepoints = Array.isArray(chokepoints) ? chokepoints : (chokepoints.data || chokepoints.chokepoints || []);
-  if (prices) allPrices = prices;
+  if (prices) {
+    // API returns flat object like {brent_usd, wti_usd, nat_gas_usd, ...}
+    // Normalize into array format for rendering
+    if (!Array.isArray(prices) && !prices.prices && !prices.data && prices.brent_usd != null) {
+      allPrices = { prices: [
+        { name: 'Brent Crude', price: prices.brent_usd, unit: 'bbl', currency: 'USD', change_pct: 0 },
+        { name: 'WTI Crude', price: prices.wti_usd, unit: 'bbl', currency: 'USD', change_pct: 0 },
+        { name: 'Natural Gas', price: prices.nat_gas_usd, unit: 'MMBtu', currency: 'USD', change_pct: 0 },
+        { name: 'US Avg Gasoline', price: prices.us_avg_gas_usd, unit: 'gal', currency: 'USD', change_pct: 0 },
+        { name: 'US CA Gasoline', price: prices.us_ca_gas_usd, unit: 'gal', currency: 'USD', change_pct: 0 },
+        { name: 'EU Avg Gasoline', price: prices.eu_avg_gas_eur, unit: 'L', currency: 'EUR', change_pct: 0 },
+        { name: 'Singapore Gas', price: prices.singapore_gas_usd, unit: 'L', currency: 'USD', change_pct: 0 },
+      ].filter(p => p.price != null) };
+    } else {
+      allPrices = prices;
+    }
+  }
   if (fleet) allFleet = fleet;
   if (alerts) allAlerts = Array.isArray(alerts) ? alerts : (alerts.data || alerts.alerts || []);
   if (storage) allStorage = Array.isArray(storage) ? storage : (storage.data || storage.regions || []);
@@ -1280,8 +1296,8 @@ function renderTicker() {
   // Fleet summary
   if (allFleet) {
     const f = allFleet;
-    items.push(`<span class="ticker-item">FLEET: <strong>${f.total_vessels || f.totalVessels || '--'}</strong> vessels</span>`);
-    const bbl = f.total_bbl_in_transit || f.totalBblInTransit || f.bbl_in_transit || 0;
+    items.push(`<span class="ticker-item">FLEET: <strong>${f.total || f.total_vessels || f.totalVessels || '--'}</strong> vessels</span>`);
+    const bbl = f.totalBblInTransit || f.total_bbl_in_transit || f.bbl_in_transit || 0;
     if (bbl) items.push(`<span class="ticker-item">IN TRANSIT: <strong>${(bbl / 1e6).toFixed(1)}M</strong> bbl</span>`);
     const dark = f.dark || f.ais_off || 0;
     if (dark > 0) items.push(`<span class="ticker-item ticker-crit">DARK: <strong>${dark}</strong> vessels</span>`);
@@ -1291,7 +1307,7 @@ function renderTicker() {
   if (allChokepoints.length) {
     allChokepoints.forEach(c => {
       const name = (c.name || '').toUpperCase();
-      const pct = c.pct_normal || c.pctNormal || c.throughput_pct || 100;
+      const pct = c.pct_of_normal || c.pct_normal || c.pctNormal || c.throughput_pct || 100;
       const cls = pct < 50 ? 'ticker-crit' : pct < 80 ? 'ticker-warn' : '';
       const icon = pct < 50 ? ' \uD83D\uDD34' : pct < 80 ? ' \u26A0\uFE0F' : '';
       items.push(`<span class="ticker-item ${cls}">${name}: ${pct}%${icon}</span>`);
@@ -1311,14 +1327,14 @@ function renderTicker() {
 function renderFleetStats() {
   if (!allFleet) return;
   const f = allFleet;
-  document.getElementById('stat-total').textContent = fmt(f.total_vessels || f.totalVessels || 0);
+  document.getElementById('stat-total').textContent = fmt(f.total || f.total_vessels || f.totalVessels || 0);
   document.getElementById('stat-underway').textContent = fmt(f.underway || 0);
-  document.getElementById('stat-anchor').textContent = fmt(f.at_anchor || f.atAnchor || f.anchor || 0);
+  document.getElementById('stat-anchor').textContent = fmt(f.anchor || f.at_anchor || f.atAnchor || 0);
   document.getElementById('stat-stranded').textContent = fmt(f.stranded || 0);
   document.getElementById('stat-ballast').textContent = fmt(f.ballast || 0);
   document.getElementById('stat-dark').textContent = fmt(f.dark || f.ais_off || 0);
 
-  const bbl = f.total_bbl_in_transit || f.totalBblInTransit || f.bbl_in_transit || 0;
+  const bbl = f.totalBblInTransit || f.total_bbl_in_transit || f.bbl_in_transit || 0;
   document.getElementById('stat-bbl').textContent = fmt(bbl);
 }
 
@@ -1354,9 +1370,9 @@ function renderChokepoints() {
   container.innerHTML = allChokepoints.map(c => {
     const name = c.name || 'Unknown';
     const status = c.status || 'open';
-    const pct = c.pct_normal || c.pctNormal || c.throughput_pct || 100;
-    const current = c.vessels_per_day || c.current_flow || 0;
-    const normal = c.normal_flow || c.capacity || 0;
+    const pct = c.pct_of_normal || c.pct_normal || c.pctNormal || c.throughput_pct || 100;
+    const current = c.current_daily_vessels || c.vessels_per_day || c.current_flow || 0;
+    const normal = c.baseline_daily_vessels || c.normal_flow || c.capacity || 0;
     const cls = chokeStatusClass(status);
     const barCls = chokeBarClass(pct);
 
@@ -1417,7 +1433,7 @@ function renderStorage() {
 
   container.innerHTML = allStorage.map(s => {
     const name = s.region || s.name || 'Unknown';
-    const amount = s.storage_bbl || s.storageBbl || s.amount || 0;
+    const amount = s.crude_storage_bbl || s.storage_bbl || s.storageBbl || s.amount || 0;
     const days = s.days_of_supply || s.daysOfSupply || s.runway_days || 0;
     const pct = s.pct_capacity || s.pctCapacity || s.capacity_pct || 0;
     const statusCls = storageStatusClass(days);
@@ -1491,6 +1507,10 @@ function goLive() {
 function initGlobe() {
   const container = document.getElementById('globe-container');
 
+  // Ensure container has dimensions (fallback if layout hasn't computed yet)
+  const w = container.clientWidth || container.parentElement.clientWidth || window.innerWidth - 560;
+  const h = container.clientHeight || container.parentElement.clientHeight || Math.max(400, window.innerHeight - 300);
+
   globe = Globe()
     .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
     .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
@@ -1520,16 +1540,16 @@ function initGlobe() {
     .ringMaxRadius('maxR')
     .ringPropagationSpeed(2)
     .ringRepeatPeriod(1500)
-    .width(container.clientWidth)
-    .height(container.clientHeight)
+    .width(w)
+    .height(h)
     (container);
 
   // Set initial camera
   globe.pointOfView({ lat: 25, lng: 45, altitude: 2.5 });
 
-  // Handle resize
+  // Handle resize — also fixes initial zero-dimension issue
   const ro = new ResizeObserver(() => {
-    if (globe) {
+    if (globe && container.clientWidth && container.clientHeight) {
       globe.width(container.clientWidth).height(container.clientHeight);
     }
   });
@@ -1544,16 +1564,16 @@ function renderGlobe() {
   const pointsData = vessels.map(v => ({
     lat: v.lat || v.latitude || 0,
     lng: v.lng || v.lon || v.longitude || 0,
-    size: vesselSize(v.type || v.vessel_type || ''),
+    size: vesselSize(v.vessel_class || v.type || v.vessel_type || ''),
     color: getVesselPointColor(v),
     name: v.name || v.vessel_name || 'Unknown',
     mmsi: v.mmsi || '--',
     status: v.status || '--',
     speed: v.speed || v.sog || 0,
-    cargo: v.cargo || v.cargo_type || '--',
+    cargo: v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : (v.cargo || v.cargo_type || '--'),
     destination: v.destination || '--',
-    type: v.type || v.vessel_type || '--',
-    capacity_bbl: v.capacity_bbl || v.capacityBbl || 0,
+    type: v.vessel_class || v.type || v.vessel_type || '--',
+    capacity_bbl: v.capacity_bbl || v.capacityBbl || v.cargo_est_bbl || 0,
     _vessel: v,
   }));
   globe.pointsData(pointsData);

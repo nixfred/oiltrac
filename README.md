@@ -131,12 +131,12 @@ FRED_API_KEY=your_fred_api_key
 AGSI_API_KEY=your_agsi_api_key
 ```
 
-| API | Free Tier | Data |
-|-----|-----------|------|
-| [AISHub](https://www.aishub.net/) | ~100 req/day | Vessel positions (AIS) |
-| [EIA](https://www.eia.gov/opendata/) | Unlimited | US petroleum inventories, gas prices |
-| [FRED](https://fred.stlouisfed.org/) | 120 req/min | Brent crude, WTI crude prices |
-| [AGSI+](https://agsi.gie.eu/) | Free w/ registration | EU gas storage levels |
+| API | Free Tier | Data | Sign Up |
+|-----|-----------|------|---------|
+| [AISHub](https://www.aishub.net/) | ~100 req/day | Vessel positions (AIS) | [Register](https://www.aishub.net/join) |
+| [EIA](https://www.eia.gov/opendata/) | Unlimited | US petroleum inventories, gas prices | [Get Key](https://www.eia.gov/opendata/register.php) |
+| [FRED](https://fred.stlouisfed.org/) | 120 req/min | Brent crude, WTI crude prices | [Get Key](https://fred.stlouisfed.org/docs/api/api_key.html) |
+| [AGSI+](https://agsi.gie.eu/) | Free w/ registration | EU gas storage levels | [Register](https://agsi.gie.eu/account) |
 
 ---
 
