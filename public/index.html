@@ -1893,20 +1893,24 @@ function renderGlobe() {
     const status = (v.status || 'underway').toLowerCase();
     const isSanctioned = sanctionedMMSIs.has(v.mmsi);
     const isOk = status === 'underway' || status === 'ballast';
-    const color = isSanctioned ? '#e040fb' : isOk ? '#00e676' : '#ff1744';
+    let color = isSanctioned ? '#e040fb' : isOk ? '#00e676' : '#ff1744';
+    let dimmed = false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const name = (v.name || '').toLowerCase();
       const mmsi = String(v.mmsi || '');
       const dest = (v.destination || '').toLowerCase();
       if (!name.includes(q) && !mmsi.includes(q) && !dest.includes(q)) {
-        // dim non-matching vessels
+        color = '#333';
+        dimmed = true;
       }
     }
+    const el = createTankerIcon(color, v.heading, v);
+    if (dimmed) el.style.opacity = '0.2';
     return {
       lat: v.lat || 0,
       lng: v.lng || 0,
-      el: createTankerIcon(color, v.heading, v),
+      el,
     };
   });
   globe.htmlElementsData(htmlData);
