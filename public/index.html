@@ -1867,6 +1867,26 @@ function zoomGlobe(delta) {
   scaleElements(newAlt);
 }
 
+// Position tooltip anchored next to an icon element
+function positionTooltipNearIcon(iconEl, tooltip) {
+  const wrapRect = document.getElementById('globe-wrap').getBoundingClientRect();
+  const iconRect = iconEl.getBoundingClientRect();
+  // Position to the right of the icon
+  let left = iconRect.right - wrapRect.left + 10;
+  let top = iconRect.top - wrapRect.top - 10;
+  // If tooltip would overflow right edge, put it on the left
+  if (left + 260 > wrapRect.width) {
+    left = iconRect.left - wrapRect.left - 270;
+  }
+  // Keep within vertical bounds
+  if (top + 200 > wrapRect.height) {
+    top = wrapRect.height - 210;
+  }
+  if (top < 10) top = 10;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+}
+
 // Scale tanker icons and labels based on zoom altitude
 function scaleElements(alt) {
   const scale = Math.max(0.4, Math.min(2.5, 2.0 / Math.sqrt(alt)));
@@ -1892,8 +1912,8 @@ function createTankerIcon(color, heading, vessel) {
     <div style="font-size:11px;color:${color};white-space:nowrap;margin-top:1px;text-shadow:0 0 3px #000,0 0 6px #000;font-family:var(--font-mono)">${name}</div>
   `;
 
-  // Hover tooltip
-  wrapper.addEventListener('mouseenter', (e) => {
+  // Hover tooltip — anchored next to the icon
+  wrapper.addEventListener('mouseenter', () => {
     const tooltip = document.getElementById('globe-tooltip');
     const v = vessel;
     const cargo = v.cargo_est_bbl ? fmt(v.cargo_est_bbl) + ' bbl' : '--';
@@ -1907,13 +1927,7 @@ function createTankerIcon(color, heading, vessel) {
       <div class="tt-row"><span class="tt-label">Dest</span><span class="tt-val">${v.destination || '--'}</span></div>
     `;
     tooltip.style.display = 'block';
-    tooltip.style.left = (e.clientX + 15) + 'px';
-    tooltip.style.top = (e.clientY + 15) + 'px';
-  });
-  wrapper.addEventListener('mousemove', (e) => {
-    const tooltip = document.getElementById('globe-tooltip');
-    tooltip.style.left = (e.clientX + 15) + 'px';
-    tooltip.style.top = (e.clientY + 15) + 'px';
+    positionTooltipNearIcon(wrapper, tooltip);
   });
   wrapper.addEventListener('mouseleave', () => {
     document.getElementById('globe-tooltip').style.display = 'none';
@@ -1975,13 +1989,30 @@ function renderGlobe() {
       el,
     };
   });
-  // Add port markers as HTML elements
+  // Add port markers as HTML elements with hover details
   for (const p of allPorts) {
     const el = document.createElement('div');
     el.className = 'tanker-icon port-label';
     el.style.cssText = 'pointer-events:auto;cursor:pointer;text-align:center;';
     el.innerHTML = `<div style="width:8px;height:8px;background:var(--amber);border-radius:50%;margin:0 auto;box-shadow:0 0 4px var(--amber)"></div>
       <div style="font-size:14px;color:var(--amber);white-space:nowrap;margin-top:2px;text-shadow:0 0 4px #000,0 0 8px #000;font-family:var(--font-mono);font-weight:600">${p.name || p.port_name}</div>`;
+    el.addEventListener('mouseenter', () => {
+      const tooltip = document.getElementById('globe-tooltip');
+      const cap = p.capacity_bpd >= 1000000 ? (p.capacity_bpd / 1000000).toFixed(1) + 'M' : Math.round(p.capacity_bpd / 1000) + 'K';
+      tooltip.innerHTML = `
+        <div class="tt-name">⚓ ${p.name || p.port_name}</div>
+        <div class="tt-row"><span class="tt-label">Country</span><span class="tt-val">${p.country || '--'}</span></div>
+        <div class="tt-row"><span class="tt-label">Region</span><span class="tt-val">${p.region || '--'}</span></div>
+        <div class="tt-row"><span class="tt-label">Capacity</span><span class="tt-val">${cap} bpd</span></div>
+        <div class="tt-row"><span class="tt-label">Ships In</span><span class="tt-val">${p.ships_inbound || 0}</span></div>
+        <div class="tt-row"><span class="tt-label">Storage</span><span class="tt-val">${p.storage_pct || 0}%</span></div>
+      `;
+      tooltip.style.display = 'block';
+      positionTooltipNearIcon(el, tooltip);
+    });
+    el.addEventListener('mouseleave', () => {
+      document.getElementById('globe-tooltip').style.display = 'none';
+    });
     htmlData.push({ lat: p.lat, lng: p.lng || p.lon, el });
   }
 
