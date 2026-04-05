@@ -45,8 +45,8 @@ html, body {
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 /* ═══════════════════════════════════════════
@@ -263,7 +263,7 @@ html, body {
    ═══════════════════════════════════════════ */
 #main {
   display: grid;
-  grid-template-columns: 280px 1fr 280px;
+  grid-template-columns: 340px 1fr 340px;
   gap: 0;
   overflow: hidden;
 }
@@ -303,7 +303,7 @@ html, body {
 
 .card-title {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--amber);
   letter-spacing: 2px;
@@ -347,7 +347,7 @@ html, body {
 }
 
 .stat-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--dim);
   letter-spacing: 1px;
@@ -357,7 +357,7 @@ html, body {
 
 .stat-value {
   font-family: var(--font-mono);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
 }
 
@@ -500,14 +500,13 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   min-height: 400px;
+  height: 100%;
 }
 
 #globe-container {
   width: 100%;
   height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
+  min-height: 400px;
 }
 
 #globe-tooltip {
@@ -1742,14 +1741,21 @@ function goLive() {
 function initGlobe() {
   const container = document.getElementById('globe-container');
 
-  // Ensure container has dimensions (fallback if layout hasn't computed yet)
-  const w = container.clientWidth || container.parentElement.clientWidth || window.innerWidth - 560;
-  const h = container.clientHeight || container.parentElement.clientHeight || Math.max(400, window.innerHeight - 300);
+  // Force container dimensions for Safari (grid 1fr can compute to 0)
+  const wrap = document.getElementById('globe-wrap');
+  if (!wrap.clientHeight || wrap.clientHeight < 100) {
+    wrap.style.height = Math.max(400, window.innerHeight - 300) + 'px';
+  }
+  if (!container.clientHeight || container.clientHeight < 100) {
+    container.style.height = wrap.clientHeight + 'px';
+  }
+  const w = container.clientWidth || wrap.clientWidth || window.innerWidth - 680;
+  const h = container.clientHeight || wrap.clientHeight || Math.max(400, window.innerHeight - 300);
 
   globe = Globe()
-    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
-    .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
     .showAtmosphere(true)
     .atmosphereColor('#1a3a6a')
     .atmosphereAltitude(0.15)
