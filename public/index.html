@@ -1788,17 +1788,17 @@ function goLive() {
 // ── Globe ──
 function initGlobe() {
   const container = document.getElementById('globe-container');
-
-  // Force container dimensions for Safari (grid 1fr can compute to 0)
   const wrap = document.getElementById('globe-wrap');
-  if (!wrap.clientHeight || wrap.clientHeight < 100) {
-    wrap.style.height = Math.max(400, window.innerHeight - 300) + 'px';
-  }
-  if (!container.clientHeight || container.clientHeight < 100) {
-    container.style.height = wrap.clientHeight + 'px';
-  }
-  const w = container.clientWidth || wrap.clientWidth || window.innerWidth - 680;
-  const h = container.clientHeight || wrap.clientHeight || Math.max(400, window.innerHeight - 300);
+
+  // Always force explicit pixel dimensions before Globe init.
+  // CSS grid 1fr can resolve to 0 on some browsers/timing.
+  const fallbackW = window.innerWidth - 840;
+  const fallbackH = Math.max(400, window.innerHeight - 300);
+  wrap.style.minHeight = fallbackH + 'px';
+  const w = Math.max(fallbackW, container.clientWidth || wrap.clientWidth || 400);
+  const h = Math.max(400, container.clientHeight || wrap.clientHeight || fallbackH);
+  container.style.width = w + 'px';
+  container.style.height = h + 'px';
 
   globe = Globe()
     .globeImageUrl('https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x5400x2700.jpg')
@@ -1850,13 +1850,15 @@ function initGlobe() {
     });
   }
 
-  // Handle resize
+  // Handle resize — watch the wrap, update container + globe
   const ro = new ResizeObserver(() => {
-    if (globe && container.clientWidth && container.clientHeight) {
-      globe.width(container.clientWidth).height(container.clientHeight);
+    if (globe && wrap.clientWidth > 100 && wrap.clientHeight > 100) {
+      container.style.width = wrap.clientWidth + 'px';
+      container.style.height = wrap.clientHeight + 'px';
+      globe.width(wrap.clientWidth).height(wrap.clientHeight);
     }
   });
-  ro.observe(container);
+  ro.observe(wrap);
 }
 
 // Zoom in/out via buttons
@@ -2242,37 +2244,33 @@ async function init() {
     console.error('Data load error:', e);
   }
 
-  // Init globe after a frame so CSS grid layout is computed
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      try {
-        initGlobe();
-        renderGlobe();
-      } catch (e) {
-        console.error('Globe init error:', e);
-      }
-      // Remove loading overlay after globe is ready
-      setTimeout(() => {
-        document.getElementById('loading-overlay').classList.add('hidden');
-      }, 500);
+  try {
+    initGlobe();
+    renderGlobe();
+  } catch (e) {
+    console.error('Globe init error:', e);
+  }
 
-      // Safety: re-check dimensions after 2s in case grid was late
-      setTimeout(() => {
-        const container = document.getElementById('globe-container');
-        if (globe && container && container.clientWidth > 100 && container.clientHeight > 100) {
-          globe.width(container.clientWidth).height(container.clientHeight);
-        }
-      }, 2000);
-    });
-  });
+  // Remove loading overlay
+  setTimeout(() => {
+    document.getElementById('loading-overlay').classList.add('hidden');
+  }, 500);
+
+  // Safety: re-check dimensions after layout settles
+  setTimeout(() => {
+    const container = document.getElementById('globe-container');
+    const wrap = document.getElementById('globe-wrap');
+    if (globe && wrap.clientWidth > 100 && wrap.clientHeight > 100) {
+      container.style.width = wrap.clientWidth + 'px';
+      container.style.height = wrap.clientHeight + 'px';
+      globe.width(wrap.clientWidth).height(wrap.clientHeight);
+    }
+  }, 1500);
 }
 
-// Wait for DOM and Globe.gl
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+// Use window.onload — fires after ALL resources (CSS, fonts, images) loaded
+// This guarantees layout is fully computed before globe init
+window.addEventListener('load', init);
 </script>
 </body>
 </html>
