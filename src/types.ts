@@ -136,6 +136,69 @@ export interface PortWithSnapshot extends Port {
   storage_pct: number;
 }
 
+export interface Sanction {
+  id: number;
+  entity_name: string;
+  entity_type: string;
+  mmsi: string;
+  imo: string;
+  source: string;
+  program: string;
+  updated_at: string;
+}
+
+export interface SanctionedVessel extends Vessel {
+  sanction_source: string;
+  sanction_program: string;
+}
+
+export interface PortHistory {
+  port_code: string;
+  port_name: string;
+  snapshots: {
+    date: string;
+    ships_inbound: number;
+    barrels_inbound: number;
+    storage_pct: number;
+  }[];
+}
+
+export interface PriceForecast {
+  us_avg_gas_forecast: number;
+  us_ca_gas_forecast: number;
+  eu_gas_forecast: number;
+  forecast_date: string;
+  confidence: 'high' | 'medium' | 'low';
+  crude_trend: 'rising' | 'falling' | 'stable';
+  explanation: string;
+}
+
+export interface CargoFlow {
+  id: string;
+  name: string;
+  fromRegion: string;
+  toRegion: string;
+  fromLat: number;
+  fromLng: number;
+  toLat: number;
+  toLng: number;
+  vesselCount: number;
+  totalBbl: number;
+}
+
+export interface RefineryStatus {
+  id: number;
+  name: string;
+  region: string;
+  lat: number;
+  lng: number;
+  capacity_bpd: number;
+  utilization_pct: number;
+  snapshot_date: string;
+  source: string;
+  updated_at: string;
+}
+
 export function log(level: LogLevel, message: string): void {
   const ts = new Date().toISOString();
   if (level === 'ERROR') {

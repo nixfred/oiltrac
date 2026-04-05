@@ -9,6 +9,12 @@ import type {
   FleetSummary,
   Alert,
   RunwayEstimate,
+  Sanction,
+  SanctionedVessel,
+  PortHistory,
+  PriceForecast,
+  CargoFlow,
+  RefineryStatus,
 } from './types';
 import { log } from './types';
 
@@ -110,6 +116,30 @@ db.exec(`
     crude_storage_bbl INTEGER,
     days_of_supply REAL,
     pct_capacity REAL,
+    source TEXT,
+    updated_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS sanctions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_name TEXT,
+    entity_type TEXT,
+    mmsi TEXT,
+    imo TEXT,
+    source TEXT,
+    program TEXT,
+    updated_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS refinery_status (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    region TEXT,
+    lat REAL,
+    lng REAL,
+    capacity_bpd INTEGER,
+    utilization_pct REAL,
+    snapshot_date TEXT,
     source TEXT,
     updated_at TEXT
   );
@@ -425,6 +455,60 @@ function seedStorageLevels(): void {
   log('INFO', `Seeded storage levels for ${regions.length} regions x ${dates.length} dates`);
 }
 
+function seedSanctions(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM sanctions').get() as { c: number };
+  if (count.c > 0) return;
+
+  const sanctions = [
+    ['OLYMPIC LION', 'vessel', '241000201', '', 'OFAC', 'IRAN', now()],
+    ['SCF PRIMORYE', 'vessel', '273000101', '', 'OFAC', 'RUSSIA-EO14024', now()],
+    ['STEALTH FALCON', 'vessel', '636000102', '', 'EU', 'IRAN', now()],
+    ['NISSOS SCHINOUSSA', 'vessel', '241000204', '', 'OFAC', 'IRAN', now()],
+    ['GRAN COUVA', 'vessel', '375000101', '', 'OFAC', 'VENEZUELA', now()],
+  ];
+
+  const stmt = db.query(
+    'INSERT INTO sanctions (entity_name, entity_type, mmsi, imo, source, program, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  for (const s of sanctions) {
+    stmt.run(...s);
+  }
+  log('INFO', `Seeded ${sanctions.length} sanctions entries`);
+}
+
+function seedRefineries(): void {
+  const count = db.query('SELECT COUNT(*) as c FROM refinery_status').get() as { c: number };
+  if (count.c > 0) return;
+
+  const dates = snapshotDates();
+
+  const refineries = [
+    { name: 'Port Arthur (TX)', region: 'USA', lat: 29.87, lng: -93.93, capacity: 630000, util: 92, source: 'EIA' },
+    { name: 'Baytown (TX)', region: 'USA', lat: 29.73, lng: -95.02, capacity: 584000, util: 88, source: 'EIA' },
+    { name: 'Garyville (LA)', region: 'USA', lat: 30.06, lng: -90.59, capacity: 564000, util: 91, source: 'EIA' },
+    { name: 'Jamnagar (India)', region: 'ASIA', lat: 22.47, lng: 69.07, capacity: 1240000, util: 95, source: 'OPEC' },
+    { name: 'Ruwais (UAE)', region: 'MIDDLE_EAST', lat: 24.11, lng: 52.73, capacity: 922000, util: 90, source: 'OPEC' },
+    { name: 'Rotterdam Europoort (NL)', region: 'EU', lat: 51.95, lng: 4.05, capacity: 404000, util: 85, source: 'IEA' },
+    { name: 'Singapore Jurong (SG)', region: 'ASIA', lat: 1.27, lng: 103.70, capacity: 592000, util: 93, source: 'JODI' },
+    { name: 'Ulsan (South Korea)', region: 'ASIA', lat: 35.54, lng: 129.36, capacity: 669000, util: 89, source: 'JODI' },
+  ];
+
+  const stmt = db.query(
+    `INSERT INTO refinery_status (name, region, lat, lng, capacity_bpd, utilization_pct, snapshot_date, source, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  for (const r of refineries) {
+    for (let di = 0; di < dates.length; di++) {
+      // Slight utilization variation per date (+-2-3%)
+      const variation = (di - 2) * (1 + (di % 2));
+      const util = Math.round((r.util + variation) * 10) / 10;
+      stmt.run(r.name, r.region, r.lat, r.lng, r.capacity, util, dates[di], r.source, now());
+    }
+  }
+  log('INFO', `Seeded ${refineries.length} refineries x ${dates.length} dates`);
+}
+
 function seedAll(): void {
   seedPorts();
   seedVessels();
@@ -432,6 +516,8 @@ function seedAll(): void {
   seedChokepoints();
   seedPrices();
   seedStorageLevels();
+  seedSanctions();
+  seedRefineries();
 }
 
 seedAll();
@@ -765,6 +851,308 @@ export function getVesselTrails(): { mmsi: string; trail: { lat: number; lng: nu
   }
 
   return Array.from(trailMap.entries()).map(([mmsi, trail]) => ({ mmsi, trail }));
+}
+
+// ---------------------------------------------------------------------------
+// Sanctions queries
+// ---------------------------------------------------------------------------
+
+export function getSanctions(): Sanction[] {
+  return db.query('SELECT * FROM sanctions ORDER BY entity_name').all() as Sanction[];
+}
+
+export function upsertSanction(s: Partial<Sanction>): void {
+  const existing = db.query(
+    'SELECT id FROM sanctions WHERE entity_name = ? AND source = ?'
+  ).get(s.entity_name, s.source) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE sanctions SET entity_type=?, mmsi=?, imo=?, program=?, updated_at=? WHERE id=?`,
+      s.entity_type ?? null, s.mmsi ?? null, s.imo ?? null,
+      s.program ?? null, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO sanctions (entity_name, entity_type, mmsi, imo, source, program, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      s.entity_name ?? null, s.entity_type ?? null, s.mmsi ?? null,
+      s.imo ?? null, s.source ?? null, s.program ?? null, now()
+    );
+  }
+}
+
+export function getSanctionedVessels(date?: string): SanctionedVessel[] {
+  const d = date || today();
+  return db.query(`
+    SELECT v.*, s.source AS sanction_source, s.program AS sanction_program
+    FROM vessels v
+    INNER JOIN sanctions s
+      ON (s.entity_name = v.name OR (s.mmsi != '' AND s.mmsi = v.mmsi))
+    WHERE v.snapshot_date = ?
+    GROUP BY v.id
+  `).all(d) as SanctionedVessel[];
+}
+
+// ---------------------------------------------------------------------------
+// Cargo flow aggregation (computed from vessel data)
+// ---------------------------------------------------------------------------
+
+const REGION_BOUNDS: Record<string, { latMin: number; latMax: number; lngMin: number; lngMax: number }> = {
+  GULF:      { latMin: 23, latMax: 30, lngMin: 48, lngMax: 57 },
+  WAF:       { latMin: -5, latMax: 10, lngMin: -15, lngMax: 15 },
+  USGC:      { latMin: 25, latMax: 31, lngMin: -98, lngMax: -80 },
+  NORTH_SEA: { latMin: 50, latMax: 62, lngMin: -5, lngMax: 10 },
+  MED:       { latMin: 30, latMax: 42, lngMin: -5, lngMax: 36 },
+  ASIA:      { latMin: -5, latMax: 22, lngMin: 100, lngMax: 125 },
+  INDIA:     { latMin: -35, latMax: 10, lngMin: 40, lngMax: 100 },
+};
+
+const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = {
+  GULF:      { lat: 26.5, lng: 52.0 },
+  WAF:       { lat: 4.0, lng: 2.0 },
+  USGC:      { lat: 28.0, lng: -90.0 },
+  NORTH_SEA: { lat: 56.0, lng: 3.0 },
+  MED:       { lat: 36.0, lng: 18.0 },
+  ASIA:      { lat: 15.0, lng: 112.0 },
+  INDIA:     { lat: -10.0, lng: 70.0 },
+};
+
+function classifySourceRegion(lat: number, lng: number): string | null {
+  for (const [region, b] of Object.entries(REGION_BOUNDS)) {
+    if (lat >= b.latMin && lat <= b.latMax && lng >= b.lngMin && lng <= b.lngMax) {
+      return region;
+    }
+  }
+  return null;
+}
+
+export function getCargoFlows(date?: string): CargoFlow[] {
+  const d = date || today();
+
+  // Get all vessels with their destination port's region
+  const rows = db.query(`
+    SELECT v.lat, v.lng, v.cargo_est_bbl, v.destination, p.region as dest_region
+    FROM vessels v
+    LEFT JOIN ports p ON p.code = v.destination
+    WHERE v.snapshot_date = ?
+  `).all(d) as { lat: number; lng: number; cargo_est_bbl: number; destination: string; dest_region: string | null }[];
+
+  // Group by (sourceRegion -> destRegion)
+  const flowMap = new Map<string, { vesselCount: number; totalBbl: number }>();
+
+  for (const row of rows) {
+    const sourceRegion = classifySourceRegion(row.lat, row.lng);
+    const destRegion = row.dest_region;
+    if (!sourceRegion || !destRegion) continue;
+
+    // Map port region names to flow region keys
+    const destKey = destRegion === 'MIDDLE_EAST' ? 'GULF'
+      : destRegion === 'EU' ? 'NORTH_SEA'
+      : destRegion === 'USA' ? 'USGC'
+      : destRegion === 'ASIA' ? 'ASIA'
+      : null;
+    if (!destKey) continue;
+    if (sourceRegion === destKey) continue; // skip intra-region
+
+    const key = `${sourceRegion}->${destKey}`;
+    const existing = flowMap.get(key) || { vesselCount: 0, totalBbl: 0 };
+    existing.vesselCount++;
+    existing.totalBbl += row.cargo_est_bbl;
+    flowMap.set(key, existing);
+  }
+
+  const flows: CargoFlow[] = [];
+  for (const [key, data] of flowMap.entries()) {
+    const [from, to] = key.split('->');
+    const fromC = REGION_CENTROIDS[from];
+    const toC = REGION_CENTROIDS[to];
+    if (!fromC || !toC) continue;
+
+    flows.push({
+      id: key,
+      name: `${from} to ${to}`,
+      fromRegion: from,
+      toRegion: to,
+      fromLat: fromC.lat,
+      fromLng: fromC.lng,
+      toLat: toC.lat,
+      toLng: toC.lng,
+      vesselCount: data.vesselCount,
+      totalBbl: data.totalBbl,
+    });
+  }
+
+  return flows;
+}
+
+// ---------------------------------------------------------------------------
+// Refinery status
+// ---------------------------------------------------------------------------
+
+export function getRefineries(date?: string): RefineryStatus[] {
+  const d = date || today();
+  return db.query('SELECT * FROM refinery_status WHERE snapshot_date = ?').all(d) as RefineryStatus[];
+}
+
+export function upsertRefinery(r: Partial<RefineryStatus>): void {
+  const existing = db.query(
+    'SELECT id FROM refinery_status WHERE name = ? AND snapshot_date = ?'
+  ).get(r.name, r.snapshot_date) as { id: number } | null;
+
+  if (existing) {
+    db.run(
+      `UPDATE refinery_status SET region=?, lat=?, lng=?, capacity_bpd=?, utilization_pct=?, source=?, updated_at=? WHERE id=?`,
+      r.region ?? null, r.lat ?? null, r.lng ?? null, r.capacity_bpd ?? null,
+      r.utilization_pct ?? null, r.source ?? null, now(), existing.id
+    );
+  } else {
+    db.run(
+      `INSERT INTO refinery_status (name, region, lat, lng, capacity_bpd, utilization_pct, snapshot_date, source, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      r.name ?? null, r.region ?? null, r.lat ?? null, r.lng ?? null,
+      r.capacity_bpd ?? null, r.utilization_pct ?? null,
+      r.snapshot_date ?? today(), r.source ?? null, now()
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Port congestion history
+// ---------------------------------------------------------------------------
+
+export function getPortHistory(portCode: string, limit?: number): PortHistory | null {
+  const l = limit || 90;
+
+  const port = db.query('SELECT code, name FROM ports WHERE code = ?').get(portCode) as { code: string; name: string } | null;
+  if (!port) return null;
+
+  const rows = db.query(`
+    SELECT snapshot_date, ships_inbound, barrels_inbound, storage_pct
+    FROM port_snapshots
+    WHERE port_code = ?
+    ORDER BY snapshot_date DESC
+    LIMIT ?
+  `).all(portCode, l) as { snapshot_date: string; ships_inbound: number; barrels_inbound: number; storage_pct: number }[];
+
+  // Reverse to ASC order for charting
+  rows.reverse();
+
+  return {
+    port_code: port.code,
+    port_name: port.name,
+    snapshots: rows.map((r) => ({
+      date: r.snapshot_date,
+      ships_inbound: r.ships_inbound,
+      barrels_inbound: r.barrels_inbound,
+      storage_pct: r.storage_pct,
+    })),
+  };
+}
+
+export function getPortCongestion(): { code: string; name: string; ships: number; trend: 'up' | 'down' | 'stable' }[] {
+  const d = today();
+  const threeDaysAgo = new Date(d);
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  const threeDaysAgoStr = threeDaysAgo.toISOString().slice(0, 10);
+
+  const ports = db.query('SELECT code, name FROM ports ORDER BY code').all() as { code: string; name: string }[];
+
+  const results: { code: string; name: string; ships: number; trend: 'up' | 'down' | 'stable' }[] = [];
+
+  for (const port of ports) {
+    const current = db.query(`
+      SELECT ships_inbound FROM port_snapshots
+      WHERE port_code = ? ORDER BY snapshot_date DESC LIMIT 1
+    `).get(port.code) as { ships_inbound: number } | null;
+
+    const previous = db.query(`
+      SELECT ships_inbound FROM port_snapshots
+      WHERE port_code = ? AND snapshot_date <= ?
+      ORDER BY snapshot_date DESC LIMIT 1
+    `).get(port.code, threeDaysAgoStr) as { ships_inbound: number } | null;
+
+    const ships = current?.ships_inbound ?? 0;
+    let trend: 'up' | 'down' | 'stable' = 'stable';
+
+    if (current && previous && previous.ships_inbound > 0) {
+      const changePct = (current.ships_inbound - previous.ships_inbound) / previous.ships_inbound;
+      if (changePct > 0.20) trend = 'up';
+      else if (changePct < -0.20) trend = 'down';
+    }
+
+    results.push({ code: port.code, name: port.name, ships, trend });
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Pump price forecast
+// ---------------------------------------------------------------------------
+
+export function getPriceForecast(): PriceForecast {
+  const rows = db.query('SELECT * FROM prices ORDER BY snapshot_date ASC LIMIT 30').all() as PriceRecord[];
+
+  const dataPoints = rows.length;
+
+  let confidence: 'high' | 'medium' | 'low';
+  if (dataPoints >= 14) confidence = 'high';
+  else if (dataPoints >= 7) confidence = 'medium';
+  else confidence = 'low';
+
+  if (dataPoints === 0) {
+    return {
+      us_avg_gas_forecast: 0,
+      us_ca_gas_forecast: 0,
+      eu_gas_forecast: 0,
+      forecast_date: today(),
+      confidence: 'low',
+      crude_trend: 'stable',
+      explanation: 'Insufficient price data to generate forecast.',
+    };
+  }
+
+  const oldest = rows[0];
+  const latest = rows[rows.length - 1];
+
+  const crudeChangePct = oldest.brent_usd > 0
+    ? (latest.brent_usd - oldest.brent_usd) / oldest.brent_usd
+    : 0;
+
+  const retailImpact = crudeChangePct * 0.6;
+
+  const usAvgForecast = Math.round((latest.us_avg_gas_usd * (1 + retailImpact)) * 100) / 100;
+  const usCaForecast = Math.round((latest.us_ca_gas_usd * (1 + retailImpact)) * 100) / 100;
+  const euForecast = Math.round((latest.eu_avg_gas_eur * (1 + retailImpact)) * 100) / 100;
+
+  const totalDays = dataPoints > 1
+    ? (new Date(latest.snapshot_date).getTime() - new Date(oldest.snapshot_date).getTime()) / (1000 * 60 * 60 * 24)
+    : 7;
+  const totalWeeks = Math.max(totalDays / 7, 1);
+  const slopePerWeek = (crudeChangePct * 100) / totalWeeks;
+
+  let crudeTrend: 'rising' | 'falling' | 'stable';
+  if (slopePerWeek > 1) crudeTrend = 'rising';
+  else if (slopePerWeek < -1) crudeTrend = 'falling';
+  else crudeTrend = 'stable';
+
+  const forecastDate = new Date(latest.snapshot_date);
+  forecastDate.setDate(forecastDate.getDate() + 21);
+
+  const trendWord = crudeTrend === 'rising' ? 'rise' : crudeTrend === 'falling' ? 'fall' : 'hold steady';
+  const absChange = Math.abs(Math.round((latest.us_avg_gas_usd * retailImpact) * 100) / 100);
+  const explanation = `Brent trending ${crudeTrend} at ${Math.round(slopePerWeek * 100) / 100}%/week. Retail gas expected to ${trendWord} by $${absChange.toFixed(2)} over next 2-4 weeks.`;
+
+  return {
+    us_avg_gas_forecast: usAvgForecast,
+    us_ca_gas_forecast: usCaForecast,
+    eu_gas_forecast: euForecast,
+    forecast_date: forecastDate.toISOString().slice(0, 10),
+    confidence,
+    crude_trend: crudeTrend,
+    explanation,
+  };
 }
 
 // ---------------------------------------------------------------------------

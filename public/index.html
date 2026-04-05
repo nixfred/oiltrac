@@ -1126,6 +1126,16 @@ html, body {
           <span style="font-size:11px;color:var(--dim)">Loading...</span>
         </div>
       </div>
+
+      <!-- Cargo Flows -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Cargo Flows</span>
+        </div>
+        <div id="flow-list">
+          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+        </div>
+      </div>
     </div>
 
     <!-- GLOBE -->
@@ -1153,12 +1163,30 @@ html, body {
         </div>
       </div>
 
+      <!-- Price Forecast -->
+      <div class="card" id="forecast-card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">Price Forecast (2-4 wk)</span>
+        </div>
+        <div id="forecast-content"></div>
+      </div>
+
       <!-- Storage & Supply -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Storage & Supply</span>
         </div>
         <div id="storage-list">
+          <span style="font-size:11px;color:var(--dim)">Loading...</span>
+        </div>
+      </div>
+
+      <!-- Refineries -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Refinery Status</span>
+        </div>
+        <div id="refinery-list">
           <span style="font-size:11px;color:var(--dim)">Loading...</span>
         </div>
       </div>
@@ -1198,6 +1226,10 @@ let allAlerts = [];
 let allStorage = [];
 let snapshotDates = [];
 let allTrails = [];
+let allSanctionedVessels = [];
+let allFlows = [];
+let allRefineries = [];
+let allForecast = null;
 let selectedDate = null;
 let searchQuery = '';
 
@@ -1295,7 +1327,7 @@ async function fetchJSON(url) {
 
 async function loadAllData(date) {
   const qs = date ? `?date=${date}` : '';
-  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails, priceHist] = await Promise.all([
+  const [vessels, ports, chokepoints, prices, fleet, alerts, storage, dates, trails, priceHist, sanctioned, flows, refineries, forecast] = await Promise.all([
     fetchJSON(`/api/vessels${qs}`),
     fetchJSON('/api/ports'),
     fetchJSON(`/api/chokepoints${qs}`),
@@ -1306,6 +1338,10 @@ async function loadAllData(date) {
     fetchJSON('/api/snapshot/dates'),
     fetchJSON('/api/vessels/trails'),
     fetchJSON('/api/prices/history?limit=2'),
+    fetchJSON('/api/sanctions/vessels'),
+    fetchJSON('/api/flows'),
+    fetchJSON('/api/refineries'),
+    fetchJSON('/api/prices/forecast'),
   ]);
 
   if (vessels) allVessels = Array.isArray(vessels) ? vessels : (vessels.data || vessels.vessels || []);
@@ -1347,6 +1383,10 @@ async function loadAllData(date) {
     setupTimeline();
   }
   if (trails) allTrails = Array.isArray(trails) ? trails : [];
+  if (sanctioned) allSanctionedVessels = Array.isArray(sanctioned) ? sanctioned : [];
+  if (flows) allFlows = Array.isArray(flows) ? flows : [];
+  if (refineries) allRefineries = Array.isArray(refineries) ? refineries : [];
+  if (forecast) allForecast = forecast;
 
   renderAll();
   flashUpdated();
@@ -1368,6 +1408,9 @@ function renderAll() {
   renderChokepoints();
   renderPrices();
   renderStorage();
+  renderFlows();
+  renderRefineries();
+  renderForecast();
   renderGlobe();
 }
 
@@ -1580,6 +1623,78 @@ function renderStorage() {
   }).join('');
 }
 
+// ── Cargo Flows ──
+function renderFlows() {
+  const container = document.getElementById('flow-list');
+  if (!allFlows.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No flow data</span>';
+    return;
+  }
+  container.innerHTML = allFlows.map(f => {
+    const bbl = f.totalBbl >= 1000000 ? (f.totalBbl / 1000000).toFixed(1) + 'M' : fmt(f.totalBbl);
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--panel-border);font-size:12px">
+        <span style="color:var(--amber)">${f.fromRegion} → ${f.toRegion}</span>
+        <span style="color:var(--text)"><span style="color:var(--green);font-family:var(--font-mono)">${f.vesselCount}</span> ships · <span style="font-family:var(--font-mono)">${bbl}</span> bbl</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Refineries ──
+function renderRefineries() {
+  const container = document.getElementById('refinery-list');
+  if (!allRefineries.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--dim)">No refinery data</span>';
+    return;
+  }
+  container.innerHTML = allRefineries.map(r => {
+    const pct = r.utilization_pct || 0;
+    const barCls = pct >= 85 ? 'green' : pct >= 70 ? 'amber' : 'red';
+    const cap = r.capacity_bpd >= 1000000 ? (r.capacity_bpd / 1000000).toFixed(1) + 'M' : Math.round(r.capacity_bpd / 1000) + 'K';
+    return `
+      <div style="padding:4px 0;border-bottom:1px solid var(--panel-border)">
+        <div style="display:flex;justify-content:space-between;font-size:11px">
+          <span style="color:var(--text)">${r.name}</span>
+          <span style="font-family:var(--font-mono);color:var(--${barCls === 'green' ? 'green' : barCls === 'amber' ? 'amber' : 'red'})">${pct}%</span>
+        </div>
+        <div class="choke-bar-wrap" style="margin-top:3px"><div class="choke-bar ${barCls}" style="width:${Math.min(100, pct)}%"></div></div>
+        <div style="font-size:9px;color:var(--dim);margin-top:2px">${cap} bpd capacity</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Price Forecast ──
+function renderForecast() {
+  const card = document.getElementById('forecast-card');
+  const container = document.getElementById('forecast-content');
+  if (!allForecast) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const f = allForecast;
+  const trendIcon = f.crude_trend === 'rising' ? '▲' : f.crude_trend === 'falling' ? '▼' : '▶';
+  const trendColor = f.crude_trend === 'rising' ? 'var(--red)' : f.crude_trend === 'falling' ? 'var(--green)' : 'var(--amber)';
+  const confColor = f.confidence === 'high' ? 'var(--green)' : f.confidence === 'medium' ? 'var(--amber)' : 'var(--dim)';
+
+  container.innerHTML = `
+    <div style="font-size:10px;color:var(--dim);margin-bottom:8px;line-height:1.4">${f.explanation}</div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">
+      <span>US Avg Gas</span>
+      <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} $${f.us_avg_gas_forecast.toFixed(2)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">
+      <span>CA Gas</span>
+      <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} $${f.us_ca_gas_forecast.toFixed(2)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">
+      <span>EU Gas</span>
+      <span style="font-family:var(--font-mono);color:${trendColor}">${trendIcon} €${f.eu_gas_forecast.toFixed(2)}</span>
+    </div>
+    <div style="margin-top:6px;font-size:9px;color:${confColor}">Confidence: ${f.confidence.toUpperCase()} · Crude ${f.crude_trend}</div>
+  `;
+}
+
 // ── Timeline ──
 function setupTimeline() {
   const slider = document.getElementById('timeline-slider');
@@ -1770,11 +1885,15 @@ function renderGlobe() {
 
   const vessels = getFilteredVessels();
 
+  // Build set of sanctioned MMSIs for fast lookup
+  const sanctionedMMSIs = new Set(allSanctionedVessels.map(s => s.mmsi));
+
   // HTML tanker icons
   const htmlData = vessels.map(v => {
     const status = (v.status || 'underway').toLowerCase();
+    const isSanctioned = sanctionedMMSIs.has(v.mmsi);
     const isOk = status === 'underway' || status === 'ballast';
-    const color = isOk ? '#00e676' : '#ff1744';
+    const color = isSanctioned ? '#e040fb' : isOk ? '#00e676' : '#ff1744';
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const name = (v.name || '').toLowerCase();
@@ -1792,7 +1911,7 @@ function renderGlobe() {
   });
   globe.htmlElementsData(htmlData);
 
-  // Labels (ports + vessel names handled by tanker icons)
+  // Labels (ports + refineries)
   const labelsData = allPorts.map(p => ({
     lat: p.lat,
     lng: p.lng || p.lon,
@@ -1800,6 +1919,16 @@ function renderGlobe() {
     labelSize: 1.0,
     dotRadius: 0.4,
   }));
+  // Add refinery markers as labels
+  for (const r of allRefineries) {
+    labelsData.push({
+      lat: r.lat,
+      lng: r.lng,
+      text: '⛽ ' + r.name,
+      labelSize: 0.6,
+      dotRadius: 0.3,
+    });
+  }
   globe.labelsData(labelsData);
 
   // Rings (chokepoints)

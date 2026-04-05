@@ -15,6 +15,13 @@ import {
   getAlerts,
   getRunwayEstimates,
   getVesselTrails,
+  getSanctions,
+  getSanctionedVessels,
+  getCargoFlows,
+  getRefineries,
+  getPortHistory,
+  getPortCongestion,
+  getPriceForecast,
 } from './db';
 import { startScheduler } from './scheduler';
 
@@ -31,6 +38,15 @@ app.get('/api/vessels', (c) => {
 
 app.get('/api/vessels/trails', (c) => {
   return c.json(getVesselTrails());
+});
+
+app.get('/api/sanctions', (c) => {
+  return c.json(getSanctions());
+});
+
+app.get('/api/sanctions/vessels', (c) => {
+  const date = c.req.query('date');
+  return c.json(getSanctionedVessels(date));
 });
 
 app.get('/api/vessels/:mmsi', (c) => {
@@ -57,6 +73,18 @@ app.get('/api/ports', (c) => {
   return c.json(merged);
 });
 
+app.get('/api/ports/congestion', (c) => {
+  return c.json(getPortCongestion());
+});
+
+app.get('/api/ports/:code/history', (c) => {
+  const code = c.req.param('code');
+  const limit = parseInt(c.req.query('limit') || '90', 10);
+  const history = getPortHistory(code, limit);
+  if (!history) return c.json({ error: 'Port not found' }, 404);
+  return c.json(history);
+});
+
 app.get('/api/chokepoints', (c) => {
   const date = c.req.query('date');
   return c.json(getChokepoints(date));
@@ -66,6 +94,10 @@ app.get('/api/prices/latest', (c) => {
   const prices = getLatestPrices();
   if (!prices) return c.json({ error: 'No price data' }, 404);
   return c.json(prices);
+});
+
+app.get('/api/prices/forecast', (c) => {
+  return c.json(getPriceForecast());
 });
 
 app.get('/api/prices/history', (c) => {
@@ -93,6 +125,16 @@ app.get('/api/snapshot/dates', (c) => {
 
 app.get('/api/runway', (c) => {
   return c.json(getRunwayEstimates());
+});
+
+app.get('/api/flows', (c) => {
+  const date = c.req.query('date');
+  return c.json(getCargoFlows(date));
+});
+
+app.get('/api/refineries', (c) => {
+  const date = c.req.query('date');
+  return c.json(getRefineries(date));
 });
 
 // ---------------------------------------------------------------------------

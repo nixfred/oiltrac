@@ -4,6 +4,8 @@ import { fetchEIAInventory } from './pipeline/eia';
 import { fetchCrudePrices } from './pipeline/prices';
 import { fetchGasPrices } from './pipeline/gas';
 import { fetchAGSIStorage } from './pipeline/agsi';
+import { fetchOFACSanctions } from './pipeline/sanctions';
+import { fetchRefineryUtilization } from './pipeline/refineries';
 import { log } from './types';
 
 export function startScheduler(): void {
@@ -52,5 +54,23 @@ export function startScheduler(): void {
     }
   });
 
-  log('INFO', 'Scheduler started — 5 pipeline jobs (1-2x daily each)');
+  // OFAC sanctions list once daily (5 AM UTC)
+  cron.schedule('0 5 * * *', async () => {
+    try {
+      await fetchOFACSanctions();
+    } catch (err) {
+      log('ERROR', `Scheduled OFAC sanctions fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+
+  // Refinery utilization once daily (9:30 AM UTC)
+  cron.schedule('30 9 * * *', async () => {
+    try {
+      await fetchRefineryUtilization();
+    } catch (err) {
+      log('ERROR', `Scheduled refinery utilization fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+
+  log('INFO', 'Scheduler started — 7 pipeline jobs (1-2x daily each)');
 }
