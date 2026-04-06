@@ -30,6 +30,14 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function effectiveDate(table: string, date?: string): string {
+  const d = date || today();
+  const row = db.query(`SELECT COUNT(*) as c FROM ${table} WHERE snapshot_date = ?`).get(d) as { c: number };
+  if (row.c > 0) return d;
+  const latest = db.query(`SELECT MAX(snapshot_date) as d FROM ${table}`).get() as { d: string | null };
+  return latest.d || d;
+}
+
 function now(): string {
   return new Date().toISOString();
 }
@@ -527,7 +535,7 @@ seedAll();
 // ---------------------------------------------------------------------------
 
 export function getVessels(date?: string): Vessel[] {
-  const d = date || today();
+  const d = effectiveDate('vessels', date);
   return db.query('SELECT * FROM vessels WHERE snapshot_date = ?').all(d) as Vessel[];
 }
 
@@ -566,7 +574,7 @@ export function getPorts(): Port[] {
 }
 
 export function getPortSnapshots(date?: string): PortSnapshot[] {
-  const d = date || today();
+  const d = effectiveDate('port_snapshots', date);
   return db.query('SELECT * FROM port_snapshots WHERE snapshot_date = ?').all(d) as PortSnapshot[];
 }
 
@@ -592,7 +600,7 @@ export function upsertPortSnapshot(ps: Partial<PortSnapshot>): void {
 }
 
 export function getChokepoints(date?: string): Chokepoint[] {
-  const d = date || today();
+  const d = effectiveDate('chokepoints', date);
   return db.query('SELECT * FROM chokepoints WHERE snapshot_date = ?').all(d) as Chokepoint[];
 }
 
@@ -651,7 +659,7 @@ export function upsertPrices(p: Partial<PriceRecord>): void {
 }
 
 export function getStorageLevels(date?: string): StorageLevel[] {
-  const d = date || today();
+  const d = effectiveDate('storage_levels', date);
   return db.query('SELECT * FROM storage_levels WHERE snapshot_date = ?').all(d) as StorageLevel[];
 }
 
@@ -677,7 +685,7 @@ export function upsertStorageLevel(s: Partial<StorageLevel>): void {
 }
 
 export function getFleetSummary(date?: string): FleetSummary {
-  const d = date || today();
+  const d = effectiveDate('vessels', date);
   const vessels = db.query('SELECT status, cargo_est_bbl FROM vessels WHERE snapshot_date = ?').all(d) as {
     status: string;
     cargo_est_bbl: number;
@@ -883,7 +891,7 @@ export function upsertSanction(s: Partial<Sanction>): void {
 }
 
 export function getSanctionedVessels(date?: string): SanctionedVessel[] {
-  const d = date || today();
+  const d = effectiveDate('vessels', date);
   return db.query(`
     SELECT v.*, s.source AS sanction_source, s.program AS sanction_program
     FROM vessels v
@@ -928,7 +936,7 @@ function classifySourceRegion(lat: number, lng: number): string | null {
 }
 
 export function getCargoFlows(date?: string): CargoFlow[] {
-  const d = date || today();
+  const d = effectiveDate('vessels', date);
 
   // Get all vessels with their destination port's region
   const rows = db.query(`
@@ -991,7 +999,7 @@ export function getCargoFlows(date?: string): CargoFlow[] {
 // ---------------------------------------------------------------------------
 
 export function getRefineries(date?: string): RefineryStatus[] {
-  const d = date || today();
+  const d = effectiveDate('refinery_status', date);
   return db.query('SELECT * FROM refinery_status WHERE snapshot_date = ?').all(d) as RefineryStatus[];
 }
 
